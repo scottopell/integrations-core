@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-echo " | Dir Name | \`<dirname>.py\` exists | manifest app_id | pyproject.toml name | is_jmx: true | "
-echo " | -------- | ----------------------- | --------------- | ------------------- | ----         | "
+echo " | Dir Name | \`<dirname>.py\` exists | manifest app_id | pyproject.toml name | is_jmx: true | setup.py packages |"
+echo " | -------- | ----------------------- | --------------- | ------------------- | ------------ | ----------------- |"
 integrations=$(find .  -maxdepth 1 -not -path '*/.*' -type d | sort)
 
 for int in $integrations; do
@@ -10,6 +10,7 @@ for int in $integrations; do
     manifest="$int/manifest.json"
     pyproject="$int/pyproject.toml"
     confExampleYaml="$int/datadog_checks/$int/data/conf.yaml.example"
+    setupDotPy="$int/setup.py"
 
     [[ -f $manifest ]] || continue # skip non-integration directories
 
@@ -28,9 +29,16 @@ for int in $integrations; do
     fi
 
     if [[ -f $confExampleYaml && $(rg "is_jmx" $confExampleYaml) ]]; then
-        echo -n "true"
+        echo -n "true | "
     else
-        echo -n "false"
+        echo -n "false | "
+    fi
+
+    if [[ -f $setupDotPy && $(rg "packages=" $setupDotPy) ]]; then
+        packageLine=$(rg "packages=\['([a-z0-9_.-]+)'\]," -or '$1' "$setupDotPy")
+        echo -n "$packageLine | "
+    else
+        echo -n "N/A | "
     fi
 
     echo ""
