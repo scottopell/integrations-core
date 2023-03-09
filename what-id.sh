@@ -1,47 +1,31 @@
 #!/usr/bin/env bash
 
-echo " | Dir Name | \`<dirname>.py\` exists | manifest app_id | pyproject.toml name | is_jmx: true | setup.py packages | jmx metric domains |"
-echo " | -------- | ----------------------- | --------------- | ------------------- | ------------ | ----------------- | -----------------  |"
+echo "| Dir Name | Check Type (python or JMX or ??) | jmx metric domains | MetricSourceName |"
+echo "| -------- | -------------------------------- | ------------------ | ---------------- |"
 integrations=$(find .  -maxdepth 1 -not -path '*/.*' -type d | sort)
 
 for int in $integrations; do
     dirName=$(basename $int)
-    intPyFile="$int/datadog_checks/$int/$int.py"
+    mainPythonFileExists="$int/datadog_checks/$int/$int.py"
+    checkPythonFileExists="$int/datadog_checks/$int/check.py"
     manifest="$int/manifest.json"
-    pyproject="$int/pyproject.toml"
     confExampleYaml="$int/datadog_checks/$int/data/conf.yaml.example"
-    setupDotPy="$int/setup.py"
     metricsYaml="$int/datadog_checks/$int/data/metrics.yaml"
 
     [[ -f $manifest ]] || continue # skip non-integration directories
 
     echo -n "| $dirName | "
 
-    [[ -f $intPyFile ]] && echo -n "true | " || echo -n "false | "
+    checkType="??"
 
-    app_id=$(jq -r '.app_id' "$manifest")
-    echo -n "$app_id | "
+    # If these pass, its a python check. If they fail, it may still be a python check
+    [[ -f $mainPythonFileExists && $(rg "^from datadog_checks" $mainPythonFileExists) ]] && checkType="python"
+    [[ -f $checkPythonFileExists && $(rg "^from datadog_checks" $checkPythonFileExists) ]] && checkType="python"
 
-    if [[ -f $pyproject ]]; then
-        pyname=$(rg 'name\s+=\s+"([a-zA-Z-]+)"$' -or '$1' "$pyproject")
-        echo -n "$pyname | "
-    else
-        echo -n "N/A (no pyproject.toml) | "
-    fi
+    [[ -f $confExampleYaml && $(rg "is_jmx" $confExampleYaml) ]] && checkType="jmx"
 
-    if [[ -f $confExampleYaml && $(rg "is_jmx" $confExampleYaml) ]]; then
-        echo -n "true | "
-    else
-        echo -n "false | "
-    fi
+    echo -n "$checkType | "
 
-
-    if [[ -f $setupDotPy && $(rg "packages=" $setupDotPy) ]]; then
-        packageLine=$(rg "packages=\['([a-z0-9_.-]+)'\]," -or '$1' "$setupDotPy")
-        echo -n "$packageLine | "
-    else
-        echo -n "N/A | "
-    fi
 
     if [[ -f $metricsYaml ]]; then
         domains=$(rg "domain: (.*)$" -or '$1' $metricsYaml | sort | uniq -c | sort -nr | tr '\n' ' ')
@@ -49,6 +33,9 @@ for int in $integrations; do
     else
         echo -n "N/A | "
     fi
+
+    # gnu-sed only, magic from https://unix.stackexchange.com/a/196241
+    echo -n "$(echo $dirName | gsed -r 's/(^|_)([a-z])/MetricSource\U\2/g') |"
 
 
     echo ""
