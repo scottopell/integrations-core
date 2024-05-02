@@ -13,9 +13,10 @@
     "media": [],
     "classifier_tags": [
       "Supported OS::Linux",
-      "Supported OS::macOS",
       "Supported OS::Windows",
-      "Category::Log Collection"
+      "Category::Log Collection",
+      "Category::Metrics",
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -24,7 +25,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "fluentd",
@@ -46,7 +46,9 @@
         "td-agent",
         "fluentd",
         "ruby td-agent"
-      ]
+      ],
+      "source_type_id": 108,
+      "auto_install": true
     },
     "dashboards": {
       "fluentd": "assets/dashboards/fluentd_dashboard.json"

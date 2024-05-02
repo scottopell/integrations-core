@@ -92,9 +92,18 @@ class ReplicaCollector(MongoCollector):
                     'replset:' + replset_name,
                 ],
             }
+
+            if self.check._config.add_node_tag_to_events:
+                event_payload['host'] = self.hostname
+                event_payload['tags'].append('mongo_node:' + node_hostname)
+
             if node_hostname == 'localhost':
                 # Do not submit events with a 'localhost' hostname.
+                if self.check._config.add_node_tag_to_events:
+                    event_payload['tags'][4] = "mongo_node:{}".format(self.hostname)
+
                 event_payload['host'] = self.hostname
+
             self.check.event(event_payload)
 
     def get_votes_config(self, api):
@@ -104,15 +113,16 @@ class ReplicaCollector(MongoCollector):
         in that case is to run the command directly on the primary."""
 
         if api.deployment_type.is_arbiter:
+            self.log.debug("Current node is arbiter. Collecting the replset from the primary instead.")
             try:
                 api = MongoApi(self.check._config, self.log, replicaset=api.deployment_type.replset_name)
-            except Exception:
+            except Exception as e:
+                self.log.debug(str(e))
                 self.log.warning(
                     "Current node is an arbiter, the extra connection to the primary was unsuccessful."
                     " Votes metrics won't be reported."
                 )
                 return None
-
         return api['local']['system.replset'].find_one()
 
     def collect(self, api):

@@ -1,22 +1,21 @@
 base_package:
 - datadog_checks_base/**/*
 changelog/no-changelog:
-- requirements-agent-release.txt
-- '*/__about__.py'
+- any:
+  - requirements-agent-release.txt
+  - '**/__about__.py'
 - all:
-  - '*/!(datadog_checks)/**'
-- all:
-  - '*/!(pyproject.toml)'
-- all:
-  - '*/(!ddev)/**'
+  - '!*/datadog_checks/**'
+  - '!*/pyproject.toml'
+  - '!ddev/src/**'
 ddev:
 - ddev/**/*
 dependencies:
-- datadog_checks_base/datadog_checks/base/data/agent_requirements.in
+- agent_requirements.in
 dependency_provider:
 - datadog_checks_dependency_provider/**/*
 dev/testing:
-- .azure-pipelines/**
+- .github/workflows/**
 - .codecov.yml
 dev/tooling:
 - .github/workflows/**
@@ -44,6 +43,8 @@ integration/aerospike:
 - aerospike/**/*
 integration/agent_metrics:
 - agent_metrics/**/*
+integration/airbyte:
+- airbyte/**/*
 integration/airflow:
 - airflow/**/*
 integration/amazon_eks:
@@ -58,6 +59,10 @@ integration/apache:
 - apache/**/*
 integration/arangodb:
 - arangodb/**/*
+integration/argo_rollouts:
+- argo_rollouts/**/*
+integration/argo_workflows:
+- argo_workflows/**/*
 integration/argocd:
 - argocd/**/*
 integration/aspdotnet:
@@ -84,10 +89,18 @@ integration/ceph:
 - ceph/**/*
 integration/cert_manager:
 - cert_manager/**/*
+integration/checkpoint_quantum_firewall:
+- checkpoint_quantum_firewall/**/*
 integration/cilium:
 - cilium/**/*
 integration/cisco_aci:
 - cisco_aci/**/*
+integration/cisco_duo:
+- cisco_duo/**/*
+integration/cisco_secure_firewall:
+- cisco_secure_firewall/**/*
+integration/cisco_umbrella_dns:
+- cisco_umbrella_dns/**/*
 integration/citrix_hypervisor:
 - citrix_hypervisor/**/*
 integration/clickhouse:
@@ -124,6 +137,10 @@ integration/datadog_checks_tests_helper:
 - datadog_checks_tests_helper/**/*
 integration/datadog_cluster_agent:
 - datadog_cluster_agent/**/*
+integration/datadog_operator:
+- datadog_operator/**/*
+integration/dcgm:
+- dcgm/**/*
 integration/directory:
 - directory/**/*
 integration/disk:
@@ -146,6 +163,8 @@ integration/elastic:
 - elastic/**/*
 integration/envoy:
 - envoy/**/*
+integration/esxi:
+- esxi/**/*
 integration/etcd:
 - etcd/**/*
 integration/exchange_server:
@@ -156,6 +175,8 @@ integration/flink:
 - flink/**/*
 integration/fluentd:
 - fluentd/**/*
+integration/fluxcd:
+- fluxcd/**/*
 integration/foundationdb:
 - foundationdb/**/*
 integration/gearmand:
@@ -226,6 +247,8 @@ integration/kafka:
 - kafka/**/*
 integration/kafka_consumer:
 - kafka_consumer/**/*
+integration/karpenter:
+- karpenter/**/*
 integration/kong:
 - kong/**/*
 integration/kube_apiserver_metrics:
@@ -250,6 +273,8 @@ integration/kubernetes_state_core:
 - kubernetes_state_core/**/*
 integration/kyototycoon:
 - kyototycoon/**/*
+integration/langchain:
+- langchain/**/*
 integration/lighttpd:
 - lighttpd/**/*
 integration/linkerd:
@@ -288,10 +313,14 @@ integration/ntp:
 - ntp/**/*
 integration/nvidia_jetson:
 - nvidia_jetson/**/*
+integration/nvidia_triton:
+- nvidia_triton/**/*
 integration/oke:
 - oke/**/*
 integration/oom_kill:
 - oom_kill/**/*
+integration/openai:
+- openai/**/*
 integration/openldap:
 - openldap/**/*
 integration/openmetrics:
@@ -306,6 +335,8 @@ integration/oracle:
 - oracle/**/*
 integration/otel:
 - otel/**/*
+integration/palo_alto_panorama:
+- palo_alto_panorama/**/*
 integration/pan_firewall:
 - pan_firewall/**/*
 integration/pdh_check:
@@ -336,6 +367,8 @@ integration/pulsar:
 - pulsar/**/*
 integration/rabbitmq:
 - rabbitmq/**/*
+integration/ray:
+- ray/**/*
 integration/redisdb:
 - redisdb/**/*
 integration/rethinkdb:
@@ -396,6 +429,8 @@ integration/ssh_check:
 - ssh_check/**/*
 integration/statsd:
 - statsd/**/*
+integration/strimzi:
+- strimzi/**/*
 integration/supervisord:
 - supervisord/**/*
 integration/system_core:
@@ -410,6 +445,12 @@ integration/tcp_queue_length:
 - tcp_queue_length/**/*
 integration/teamcity:
 - teamcity/**/*
+integration/tekton:
+- tekton/**/*
+integration/teleport:
+- teleport/**/*
+integration/temporal:
+- temporal/**/*
 integration/tenable:
 - tenable/**/*
 integration/teradata:
@@ -422,6 +463,8 @@ integration/tokumx:
 - tokumx/**/*
 integration/tomcat:
 - tomcat/**/*
+integration/torchserve:
+- torchserve/**/*
 integration/traffic_server:
 - traffic_server/**/*
 integration/twemproxy:
@@ -438,12 +481,18 @@ integration/voltdb:
 - voltdb/**/*
 integration/vsphere:
 - vsphere/**/*
+integration/weaviate:
+- weaviate/**/*
 integration/weblogic:
 - weblogic/**/*
 integration/win32_event_log:
 - win32_event_log/**/*
+integration/wincrashdetect:
+- wincrashdetect/**/*
 integration/windows_performance_counters:
 - windows_performance_counters/**/*
+integration/windows_registry:
+- windows_registry/**/*
 integration/windows_service:
 - windows_service/**/*
 integration/winkmem:
@@ -452,8 +501,13 @@ integration/wmi_check:
 - wmi_check/**/*
 integration/yarn:
 - yarn/**/*
+integration/zeek:
+- zeek/**/*
 integration/zk:
 - zk/**/*
-release:
+qa/skip-qa:
+- '**/__about__.py'
 - requirements-agent-release.txt
-- '*/__about__.py'
+- '*/CHANGELOG.md'
+release:
+- '**/__about__.py'

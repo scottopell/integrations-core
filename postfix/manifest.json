@@ -12,10 +12,9 @@
     "title": "Postfix",
     "media": [],
     "classifier_tags": [
+      "Category::Log Collection",
       "Supported OS::Linux",
-      "Supported OS::macOS",
-      "Category::Collaboration",
-      "Category::Log Collection"
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -24,7 +23,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "Postfix",
@@ -45,7 +43,9 @@
       "process_signatures": [
         "postfix start",
         "sendmail -bd"
-      ]
+      ],
+      "source_type_id": 66,
+      "auto_install": true
     },
     "dashboards": {
       "postfix": "assets/dashboards/postfix_dashboard.json"

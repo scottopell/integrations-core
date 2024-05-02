@@ -3,6 +3,7 @@
 # Licensed under a 3-clause BSD style license (see LICENSE)
 import os
 from collections import defaultdict
+from datetime import date
 
 import click
 
@@ -77,6 +78,21 @@ def display_path_tree(path_tree):
             echo_info(path)
 
 
+TOWNCRIER_BODY = """\
+<!-- towncrier release notes start -->
+"""
+
+STATIC_CHANGELOG_BODY = """\
+## 1.0.0 / {today}
+
+***Added***:
+
+* Initial Release
+""".format(
+    today=date.today()
+)
+
+
 @click.command(context_settings=CONTEXT_SETTINGS, short_help='Create scaffolding for a new integration')
 @click.argument('name')
 @click.option(
@@ -116,7 +132,7 @@ def create(ctx, name, integration_type, location, non_interactive, quiet, dry_ru
     if os.path.exists(integration_dir):
         abort(f'Path `{integration_dir}` already exists!')
 
-    template_fields = {'manifest_version': '1.0.0'}
+    template_fields = {'manifest_version': '1.0.0', "today": date.today()}
     if non_interactive and repo_choice != 'core':
         abort(f'Cannot use non-interactive mode with repo_choice: {repo_choice}')
 
@@ -132,17 +148,14 @@ def create(ctx, name, integration_type, location, non_interactive, quiet, dry_ru
             author_name = click.prompt('Your Company Name')
             homepage = click.prompt('The product or company homepage')
             sales_email = click.prompt('Email used for subscription notifications')
-            legal_email = click.prompt('The Legal email used to receive subscription notifications')
 
             template_fields['author'] = author_name
 
             eula = 'assets/eula.pdf'
-            template_fields[
-                'terms'
-            ] = f'\n  "terms": {{\n    "eula": "{eula}",\n    "legal_email": "{legal_email}"\n  }},'
-            template_fields[
-                'author_info'
-            ] = f'\n  "author": {{\n    "name": "{author_name}",\n    "homepage": "{homepage}",\n    "vendor_id": "{TODO_FILL_IN}",\n    "sales_email": "{sales_email}",\n    "support_email": "{support_email}"\n  }},'  # noqa
+            template_fields['terms'] = f'\n  "terms": {{\n    "eula": "{eula}"\n  }},'
+            template_fields['author_info'] = (
+                f'\n  "author": {{\n    "name": "{author_name}",\n    "homepage": "{homepage}",\n    "vendor_id": "{TODO_FILL_IN}",\n    "sales_email": "{sales_email}",\n    "support_email": "{support_email}"\n  }},'  # noqa
+            )
 
             template_fields['pricing_plan'] = '\n  "pricing": [],'
 
@@ -180,9 +193,11 @@ def create(ctx, name, integration_type, location, non_interactive, quiet, dry_ru
                 f"\n    # The project's main homepage."
                 f"\n    url='https://github.com/DataDog/integrations-{repo_choice}',"
             )
+    template_fields['changelog_body'] = STATIC_CHANGELOG_BODY if repo_choice != 'core' else TOWNCRIER_BODY
+    template_fields['starting_version'] = '0.0.1' if repo_choice == 'core' else '1.0.0'
     config = construct_template_fields(name, repo_choice, integration_type, **template_fields)
 
-    files = create_template_files(integration_type, root, config, read=not dry_run)
+    files = create_template_files(integration_type, root, config, repo_choice, read=not dry_run)
     file_paths = [file.file_path.replace(f'{root}{path_sep}', '', 1) for file in files]
 
     path_tree = tree()

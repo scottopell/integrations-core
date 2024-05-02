@@ -12,11 +12,11 @@
     "title": "Memcache",
     "media": [],
     "classifier_tags": [
-      "Supported OS::Linux",
-      "Supported OS::macOS",
-      "Category::Web",
       "Category::Caching",
-      "Category::Log Collection"
+      "Category::Log Collection",
+      "Category::Tracing",
+      "Supported OS::Linux",
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -25,7 +25,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "Memcached",
@@ -45,7 +44,9 @@
       },
       "process_signatures": [
         "memcached"
-      ]
+      ],
+      "source_type_id": 32,
+      "auto_install": true
     },
     "dashboards": {
       "memcached": "assets/dashboards/memcached_dashboard.json",

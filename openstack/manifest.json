@@ -12,11 +12,12 @@
     "title": "OpenStack (legacy)",
     "media": [],
     "classifier_tags": [
-      "Supported OS::Linux",
-      "Supported OS::macOS",
-      "Supported OS::Windows",
       "Category::Cloud",
-      "Category::Log Collection"
+      "Category::Log Collection",
+      "Category::Network",
+      "Supported OS::Linux",
+      "Supported OS::Windows",
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -25,7 +26,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "OpenStack",
@@ -45,7 +45,9 @@
       },
       "process_signatures": [
         "stack.sh"
-      ]
+      ],
+      "source_type_id": 125,
+      "auto_install": true
     },
     "dashboards": {
       "openstack": "assets/dashboards/openstack_dashboard.json"

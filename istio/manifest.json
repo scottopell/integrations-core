@@ -12,11 +12,12 @@
     "title": "Istio",
     "media": [],
     "classifier_tags": [
+      "Category::Log Collection",
+      "Category::Network",
+      "Category::Tracing",
       "Supported OS::Linux",
-      "Supported OS::macOS",
       "Supported OS::Windows",
-      "Category::Data Store",
-      "Category::Log Collection"
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -25,7 +26,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "Istio",
@@ -46,7 +46,13 @@
       },
       "service_checks": {
         "metadata_path": "assets/service_checks.json"
-      }
+      },
+      "process_signatures": [
+        "pilot-agent proxy router",
+        "envoy envoy-rev0.json"
+      ],
+      "source_type_id": 10017,
+      "auto_install": true
     },
     "dashboards": {
       "Istio base dashboard": "assets/dashboards/istio_overview.json",
@@ -58,6 +64,14 @@
     },
     "logs": {
       "source": "istio"
+    },
+    "saved_views": {
+      "Istio Overview": "assets/saved_views/istio_overview.json",
+      "Istio Error Overview": "assets/saved_views/istio_error_overview.json",
+      "Istio Pilot Logs": "assets/saved_views/istio_pilot_logs.json",
+      "Istio Pilot Error Logs": "assets/saved_views/istio_pilot_errors.json",
+      "Istio Proxyv2 Logs": "assets/saved_views/istio_proxyv2_logs.json",
+      "Istio Proxyv2 Error Logs": "assets/saved_views/istio_proxyv2_errors.json"
     }
   }
 }

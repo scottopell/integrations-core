@@ -14,7 +14,6 @@ class MySQLConfig(object):
         self.host = instance.get('host', instance.get('server', ''))
         self.port = int(instance.get('port', 0))
         self.reported_hostname = instance.get('reported_hostname', '')
-        self.tags = list(instance.get('tags', []))
         self.mysql_sock = instance.get('sock', '')
         self.defaults_file = instance.get('defaults_file', '')
         self.user = instance.get('username', instance.get('user', ''))
@@ -29,6 +28,7 @@ class MySQLConfig(object):
         self.additional_status = instance.get('additional_status', [])
         self.additional_variable = instance.get('additional_variable', [])
         self.connect_timeout = instance.get('connect_timeout', 10)
+        self.read_timeout = instance.get('read_timeout', 10)
         self.max_custom_queries = instance.get('max_custom_queries', DEFAULT_MAX_CUSTOM_QUERIES)
         self.charset = instance.get('charset')
         self.dbm_enabled = is_affirmative(instance.get('dbm', instance.get('deep_database_monitoring', False)))
@@ -40,11 +40,14 @@ class MySQLConfig(object):
         )
         self.statement_samples_config = instance.get('query_samples', instance.get('statement_samples', {})) or {}
         self.statement_metrics_config = instance.get('query_metrics', {}) or {}
+        self.settings_config = instance.get('collect_settings', {}) or {}
         self.activity_config = instance.get('query_activity', {}) or {}
         self.cloud_metadata = {}
         aws = instance.get('aws', {})
         gcp = instance.get('gcp', {})
         azure = instance.get('azure', {})
+        # Remap fully_qualified_domain_name to name
+        azure = {k if k != 'fully_qualified_domain_name' else 'name': v for k, v in azure.items()}
         if aws:
             self.cloud_metadata.update({'aws': aws})
         if gcp:
@@ -68,9 +71,25 @@ class MySQLConfig(object):
             'table_names': is_affirmative(obfuscator_options_config.get('collect_tables', True)),
             'collect_commands': is_affirmative(obfuscator_options_config.get('collect_commands', True)),
             'collect_comments': is_affirmative(obfuscator_options_config.get('collect_comments', True)),
+            # Config to enable/disable obfuscation of sql statements with go-sqllexer pkg
+            # Valid values for this can be found at https://github.com/DataDog/datadog-agent/blob/main/pkg/obfuscate/obfuscate.go#L108
+            'obfuscation_mode': obfuscator_options_config.get('obfuscation_mode', 'obfuscate_and_normalize'),
+            'remove_space_between_parentheses': is_affirmative(
+                obfuscator_options_config.get('remove_space_between_parentheses', False)
+            ),
+            'keep_null': is_affirmative(obfuscator_options_config.get('keep_null', False)),
+            'keep_boolean': is_affirmative(obfuscator_options_config.get('keep_boolean', False)),
+            'keep_positional_parameter': is_affirmative(
+                obfuscator_options_config.get('keep_positional_parameter', False)
+            ),
+            'keep_trailing_semicolon': is_affirmative(obfuscator_options_config.get('keep_trailing_semicolon', False)),
+            'keep_identifier_quotation': is_affirmative(
+                obfuscator_options_config.get('keep_identifier_quotation', False)
+            ),
         }
         self.log_unobfuscated_queries = is_affirmative(instance.get('log_unobfuscated_queries', False))
         self.log_unobfuscated_plans = is_affirmative(instance.get('log_unobfuscated_plans', False))
+        self.database_instance_collection_interval = instance.get('database_instance_collection_interval', 1800)
         self.configuration_checks()
 
     def _build_tags(self, custom_tags):

@@ -4,6 +4,13 @@ files:
   options:
   - template: init_config
     options:
+    - name: propagate_agent_tags
+      description: |
+        Set to `true` to propagate the tags from `datadog.yaml` to the check.
+        When set to `true`, the tags from `datadog.yaml` are added to the check's tags for all instances.        
+      value:
+        example: false
+        type: boolean
     - template: init_config/default
   - template: instances
     options:
@@ -14,7 +21,7 @@ files:
         NOTE: Even if the server name is `localhost`, the Agent connects to PostgreSQL using TCP/IP unless you also
         provide a value for the sock key.
       value:
-        example: localhost
+        example: "localhost"
         type: string
     - name: port
       description: The port to use when connecting to PostgreSQL.
@@ -22,11 +29,11 @@ files:
         type: integer
         example: 5432
     - name: username
-      required: true
       description: The Datadog username created to connect to PostgreSQL.
+      required: true
       value:
-          type: string
-          example: datadog
+        type: string
+        example: datadog
     - name: password
       description: The password associated with the Datadog user.
       value:
@@ -65,10 +72,12 @@ files:
           - 'template%'
           - rdsadmin
           - azure_maintenance
+          - cloudsqladmin
         default:
           - 'template%'
           - rdsadmin
           - azure_maintenance
+          - cloudsqladmin
     - name: ssl
       description: |
         This option determines whether or not and with what priority a secure SSL TCP/IP connection
@@ -84,12 +93,10 @@ files:
                          trusted CA and that the requested server host name matches the one in the certificate.
 
         For a detailed description of how these options work see https://www.postgresql.org/docs/current/libpq-ssl.html
-
-        Note: `true` is an alias for `require`, and `false` is an alias for `disable`.
       value:
         type: string
-        display_default: false
-        example: "false"
+        example: 'allow'
+        default: 'allow'
     - name: ssl_root_cert
       description: |
         The path to the ssl root certificate.
@@ -97,8 +104,6 @@ files:
         For a detailed description of how this option works see https://www.postgresql.org/docs/current/libpq-ssl.html
       value:
         type: string
-        display_default: false
-        example: "/home/datadog/server-ca.pem"
     - name: ssl_cert
       description: |
         The path to the ssl certificate.
@@ -106,8 +111,6 @@ files:
         For a detailed description of how this option works see https://www.postgresql.org/docs/current/libpq-ssl.html
       value:
         type: string
-        display_default: false
-        example: "/home/datadog/client-cert.pem"
     - name: ssl_key
       description: |
         The path to the ssl client key.
@@ -115,8 +118,6 @@ files:
         For a detailed description of how this option works see https://www.postgresql.org/docs/current/libpq-ssl.html
       value:
         type: string
-        display_default: false
-        example: "/home/datadog/client-key.pem"
     - name: ssl_password
       description: |
         The password for the secret key specified in ssl_key, allowing client certificate private keys to be stored
@@ -125,8 +126,6 @@ files:
         For a detailed description of how this option works see https://www.postgresql.org/docs/current/libpq-ssl.html
       value:
         type: string
-        display_default: false
-        example: "ssl_key_password"
     - name: query_timeout
       description: |
         Adds a statement_timeout https://www.postgresql.org/docs/current/runtime-config-client.html#GUC-STATEMENT-TIMEOUT
@@ -136,6 +135,27 @@ files:
       value:
         type: integer
         example: 5000
+    - name: idle_connection_timeout
+      description: |
+        Sets the timeout (in ms) a connection used in the connection pool will be idle until it is closed by the pooler.
+        This value should be configured to a lower value if you are observing connection buildup on the Postgres server,
+        or a higher value if connections are getting prematurely closed.
+      hidden: true
+      value:
+        type: integer
+        example: 60000
+    - name: max_connections
+      hidden: true
+      description: |
+        Sets the upper bound limit on the number of concurrent connections the Agent can have on the database server.
+        The Agent needs to open additional connections to collect explain plans across databases.
+        Idle connections are cached, but pruned over time to balance the performance impact of opening connections and the cost of having many open connections.
+        Raising the default value should only be needed on workloads with >50 databases.
+        Lowering the default value can reduce the number of explain plans collected and is not recommended in most cases.
+      value:
+        type: integer
+        example: 30
+        display_default: 30
     - name: relations
       description: |
         The list of relations/tables must be specified here to track per-relation (table, index , view, etc.) metrics.
@@ -205,10 +225,16 @@ files:
         type: boolean
         example: false
     - name: collect_count_metrics
-      description: Collect count of user tables up to max_relations size from pg_stat_user_tables.
+      description: Collect count of user tables from pg_class.
       value:
         type: boolean
         example: true
+    - name: collect_checksum_metrics
+      description: Collect counts of database failed checksums. Only supported on versions >= 12.
+      value:
+        type: boolean
+        example: false
+        display_default: false
     - name: collect_activity_metrics
       description: |
         Collect metrics regarding transactions from pg_stat_activity. Please make sure the user
@@ -222,6 +248,7 @@ files:
         By default, datname, usename and application_name will be used.
         If applications with different application_name are creating a lot of short-lived queries,
         removing application_name from the aggregation can help generate more stable metrics.
+        Note that datname is a required aggregation on activity metrics and can't be excluded.
       value:
         type: array
         items:
@@ -248,7 +275,9 @@ files:
     - name: collect_wal_metrics
       description: |
         Collect metrics about WAL file age.
-        NOTE: You must be running the check local to your database if you want to enable this option.
+        NOTE: 
+        For Postgres 9.6 and below, you must run the check local to your database if you want to enable this option.
+        Starting Postgres 10, WAL file metrics are enabled by default using `pg_ls_waldir` and don't need local access.
       value:
         type: boolean
         example: false
@@ -290,6 +319,66 @@ files:
                   type: <COLUMNS_2_TYPE>
               tags:
                 - <TAG_KEY>:<TAG_VALUE>
+    - name: database_autodiscovery
+      description: |
+        Define the configuration for database autodiscovery.
+        Complete this section if you want to auto-discover databases on this host
+        instead of specifying each using dbname.
+      options:
+        - name: enabled
+          description: Enable database autodiscovery.
+          value:
+            type: boolean
+            example: false
+            display_default: false
+        - name: max_databases
+          description: The maximum number of databases this host should monitor.
+          value:
+            type: integer
+            example: 100
+            display_default: 100
+        - name: include
+          description: |
+            Regular expression for database names to include as part of
+            database autodiscovery.
+            Will report metrics for databases that are found in this instance,
+            ignores databases listed but not found.
+            Character casing is ignored. The regular expressions start matching from
+            the beginning, so to match anywhere, prepend `.*`. For exact matches append `$`.
+            Defaults to `.*` to include everything.
+          value:
+            type: array
+            items:
+              type: string
+            example:
+              - "master$"
+              - "AdventureWorks.*"
+            display_default:
+              - ".*"
+        - name: exclude
+          description: |
+            Regular expression for database names to exclude as part of `database_autodiscovery`.
+            Character casing is ignored. The regular expressions start matching from the beginning,
+            so to match anywhere, prepend `.*`. For exact matches append `$`.
+            In case of conflicts, database exclusion via `exclude` takes precedence over
+            those found via `include`
+          value:
+            type: array
+            items:
+              type: string
+            example:
+              - "model"
+              - "msdb"
+              - "cloudsqladmin"
+              - "rdsadmin"
+            display_default:
+              - "cloudsqladmin"
+        - name: refresh
+          description: Frequency in seconds of scans for new databases. Defaults to 10 minutes.
+          value:
+            type: integer
+            example: 600
+            display_default: 600
     - name: application_name
       description: |
         The application_name can be any string of less than NAMEDATALEN characters (64 characters in a standard build).
@@ -313,6 +402,7 @@ files:
       value:
         type: string
         example: show_pg_stat_statements()
+        display_default: pg_stat_statements
     - name: query_metrics
       description: Configure collection of query metrics
       options:
@@ -390,17 +480,17 @@ files:
             example: 10000
         - name: explain_parameterized_queries
           description: |
-            Note, this is a BETA feature. This option will enable the ability to explain parameterized queries.
+            This option will enable the ability to explain parameterized queries.
             This is useful if your SQL clients are using the extended query protocol or prepared statements.
           value:
             type: boolean
-            example: false
+            example: true
     - name: query_activity
       description: Configure collection of query activity
       options:
         - name: enabled
           description: |
-            Enable collection of query activity. Requires `dbm: true`, and enabling query_samples.
+            Enable collection of query activity. Requires `dbm: true`.
           value:
             type: boolean
             example: true
@@ -418,42 +508,130 @@ files:
           value:
             type: number
             example: 3500
+    - name: collect_settings
+      description: Configure collection of pg_settings. This is an alpha feature.
+      options:
+        - name: enabled
+          description: |
+            Enable collection of pg_settings. Requires `dbm: true`.
+          value:
+            type: boolean
+            example: false
+        - name: collection_interval
+          description: |
+            Set the database settings collection interval (in seconds). Each collection involves a single query to
+            `pg_settings`.
+          value:
+            type: number
+            example: 600
+        - name: ignored_settings_patterns
+          description: |
+            A list of setting patterns to ignore. Any setting key matching one of the value in this list will 
+            not be collected. This uses the traditional LIKE pattern-matching approach.
+          value:
+              type: array
+              items:
+                type: string
+              example:
+                - plpgsql%
+              default:
+                - plpgsql%
+    - name: collect_schemas
+      description: |
+        Enable collection of database schemas. In order to collect schemas from all user databases,
+        enable `database_autodiscovery`. To collect from a single database, set `dbname` to collect
+        the schema for that database.
+      options:
+        - name: enabled
+          description: |
+            Enable collection of database schemas. Requires `dbm: true` and relation metrics must be enabled.
+          value:
+            type: boolean
+            example: false
+        - name: max_tables
+          description: |
+            Maximum amount of tables the Agent collects from the instance.
+          value:
+            type: number
+            example: 300
+            display_default: 300
+        - name: max_columns
+          description: |
+            Maximum amount of columns the Agent collects per table.
+          value:
+            type: number
+            example: 50
+            display_default: 50
+        - name: collection_interval
+          description: |
+            The database schema collection interval (in seconds).
+          value:
+            type: number
+            example: 600
 
     - name: aws
       description: |
-        This block defines the configuration for AWS RDS and Aurora instances. 
-        
-        Complete this section if you have installed the Datadog AWS Integration 
-        (https://docs.datadoghq.com/integrations/amazon_web_services) to enrich instances 
+        This block defines the configuration for AWS RDS and Aurora instances.
+
+        Complete this section if you have installed the Datadog AWS Integration
+        (https://docs.datadoghq.com/integrations/amazon_web_services) to enrich instances
         with Postgres integration telemetry.
-        
+
         These values are only applied when `dbm: true` option is set.
       options:
         - name: instance_endpoint
           description: |
-            Equal to the Endpoint.Address of the instance the agent is connecting to. 
+            Equal to the Endpoint.Address of the instance the agent is connecting to.
             This value is optional if the value of `host` is already configured to the instance endpoint.
-            
-            For more information on instance endpoints, 
+
+            For more information on instance endpoints,
             see the AWS docs https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_Endpoint.html
           value:
             type: string
             example: mydb.cfxgae8cilcf.us-east-1.rds.amazonaws.com
+        - name: region
+          description: |
+            Equal to the region of the instance the agent is connecting to.
+            This value is used to configure IAM authentication.
+          value:
+            type: string
+            example: us-east-1
+        - name: managed_authentication
+          description: |
+            Configure section used for AWS IAM Authentication with RDS.
+
+            This supports using IAM database authentication to connect to your database instance.
+
+            For more information on configuration, see
+            https://docs.datadoghq.com/database_monitoring/guide/managed_authentication
+
+            For more information on RDS IAM Authentication, see the AWS docs
+            https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.Connecting.html
+
+            To enable IAM Authentication, set `aws.managed_authentication.enabled` to `true`.
+            If `aws.managed_authentication.enabled` is set, then the `password` fields will be ignored.
+            `aws.region` is required to enable IAM Authentication.
+          value:
+            type: object
+            properties:
+            - name: enabled
+              type: boolean
+              example: false
 
     - name: gcp
       description: |
         This block defines the configuration for Google Cloud SQL instances.
-        
-        Complete this section if you have installed the Datadog GCP Integration 
-        (https://docs.datadoghq.com/integrations/google_cloud_platform) to enrich instances 
+
+        Complete this section if you have installed the Datadog GCP Integration
+        (https://docs.datadoghq.com/integrations/google_cloud_platform) to enrich instances
         with Postgres integration telemetry.
-        
+
         These values are only applied when `dbm: true` option is set.
       options:
         - name: project_id
           description: |
             Equal to the GCP resource's project ID.
-            
+
             For more information on project IDs,
             See the GCP docs https://cloud.google.com/resource-manager/docs/creating-managing-projects
           value:
@@ -462,7 +640,7 @@ files:
         - name: instance_id
           description: |
             Equal to the GCP resource's instance ID.
-            
+
             For more information on instance IDs,
             See the GCP docs https://cloud.google.com/sql/docs/postgres/instance-settings#instance-id-2ndgen
           value:
@@ -472,38 +650,107 @@ files:
     - name: azure
       description: |
         This block defines the configuration for Azure Database for PostgreSQL.
-        
-        Complete this section if you have installed the Datadog Azure Integration 
-        (https://docs.datadoghq.com/integrations/azure) to enrich instances 
+
+        Complete this section if you have installed the Datadog Azure Integration
+        (https://docs.datadoghq.com/integrations/azure) to enrich instances
         with Postgres integration telemetry.
         These values are only applied when `dbm: true` option is set.
       options:
         - name: deployment_type
           description: |
-            Equal to the deployment type for the managed database. 
-            
+            Equal to the deployment type for the managed database.
+
             Acceptable values are:
-              - `flexible_server` 
+              - `flexible_server`
               - `single_server`
               - `virtual_machine`
-            
-            For more information on deployment types, 
+
+            For more information on deployment types,
             see the Azure docs https://docs.microsoft.com/en-us/azure/postgresql/overview-postgres-choose-server-options
           value:
             type: string
             example: flexible_server
-        - name: name
+        - name: fully_qualified_domain_name
           description: |
-            Equal to the name of the Azure PostgreSQL database.
+            Equal to the full qualified domain name of the Azure PostgreSQL database.
+
+            This value is optional if the value of `host` is already configured to the fully qualified domain name.
           value:
             type: string
-            example: my-postgres-database
+            example: my-postgres-database.database.windows.net
+        - name: managed_authentication
+          description: |
+            Configuration section used for Azure AD Authentication.
+
+            This supports using System or User assigned managed identities.
+
+            For more information on configuration, see
+            https://docs.datadoghq.com/database_monitoring/guide/managed_authentication
+
+            For more information on Managed Identities, see the Azure docs
+            https://learn.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/overview
+
+            To enable Azure AD Authentication, set `azure.managed_authentication.enabled` to `true`.
+            If `azure.managed_authentication.enabled` is set, then the `password` fields will be ignored.
+            `azure.managed_authentication.client_id` is required to enable Azure AD Authentication.
+
+            For more information on scopes, see the Azure docs
+            https://learn.microsoft.com/en-us/azure/active-directory/develop/scopes-oidc
+          value:
+            type: object
+            properties:
+            - name: enabled
+              type: boolean
+              example: false
+            - name: client_id
+              type: string
+            - name: identity_scope
+              type: string
+              example: https://ossrdbms-aad.database.windows.net/.default
+
+    - name: managed_identity
+      description: |
+        DEPRECATED: Please use `azure.managed_authentication` instead.
+
+        Configuration section used for Azure AD Authentication.
+
+        This supports using System or User assigned managed identities.
+        If this section is set, then the `username` and `password` fields will be ignored.
+
+        For more information on Managed Identities, see the Azure docs
+        https://learn.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/overview
+      options:
+        - name: client_id
+          description: |
+            Client ID of the Managed Identity.
+          value:
+            type: string
+        - name: identity_scope
+          description: |
+            The permission scope from where to access the identity token. This value is optional if using the default
+            identity scope for Azure managed databases.
+
+            For more information on scopes, see the Azure docs
+            https://learn.microsoft.com/en-us/azure/active-directory/develop/scopes-oidc
+          value:
+            type: string
+            example: https://ossrdbms-aad.database.windows.net/.default
 
     - name: obfuscator_options
       description: |
         Configure how the SQL obfuscator behaves.
         Note: This option only applies when `dbm` is enabled.
       options:
+        - name: obfuscation_mode
+          description: |
+            Set the obfuscation mode. The obfuscation mode determines how the SQL obfuscator will obfuscate your SQL
+            statements. The following modes are supported:
+            - `obfuscate_only`: Obfuscate the SQL statement without normalizing the statement.
+            - `obfuscate_and_normalize`: Obfuscate the SQL statement and normalize the statement.
+          value:
+            type: string
+            example: obfuscate_and_normalize
+            display_default: obfuscate_and_normalize
         - name: replace_digits
           description: |
             Set to `true` to replace digits in identifiers and table names with question marks in your SQL statements.
@@ -559,6 +806,48 @@ files:
             type: boolean
             example: true
             display_default: true
+        - name: remove_space_between_parentheses
+          description: |
+            Set to `true` to remove spaces between parentheses in your normalized SQL statements.
+          value:
+            type: boolean
+            example: false
+            display_default: false
+        - name: keep_null
+          description: |
+            Set to `true` to keep the keyword `NULL` in your obfuscated SQL statements.
+          value:
+            type: boolean
+            example: false
+            display_default: false
+        - name: keep_boolean
+          description: |
+            Set to `true` to keep the keywords `TRUE` and `FALSE` in your obfuscated SQL statements.
+          value:
+            type: boolean
+            example: false
+            display_default: false
+        - name: keep_positional_parameter
+          description: |
+            Set to `true` to keep positional parameters (e.g. `$1`) in your obfuscated SQL statements.
+          value:
+            type: boolean
+            example: false
+            display_default: false
+        - name: keep_trailing_semicolon
+          description: |
+            Set to `true` to keep trailing semicolons in your normalized SQL statements.
+          value:
+            type: boolean
+            example: false
+            display_default: false
+        - name: keep_identifier_quotation
+          description: |
+            Set to `true` to keep identifier quotations (e.g. `"my_table"`) in your normalized SQL statements.
+          value:
+            type: boolean
+            example: false
+            display_default: false
     - name: log_unobfuscated_queries
       hidden: true
       description: |
@@ -579,6 +868,24 @@ files:
         type: boolean
         example: false
         display_default: false
+    - name: database_instance_collection_interval
+      hidden: true
+      description: |
+        Set the database instance collection interval (in seconds). The database instance collection sends
+        basic information about the database instance along with a signal that it still exists.
+        This collection does not involve any additional queries to the database.
+      value:
+        type: number
+        example: 1800
+        display_default: false
+    - name: propagate_agent_tags
+      description: |
+        Set to `true` to propagate the tags from `datadog.yaml` to the check.
+        When set to `true`, the tags from `datadog.yaml` are added to the check's tags.
+        This option takes precedence over the `propagate_agent_tags` option in `init_config`.
+      value:
+        example: false
+        type: boolean
     - template: instances/default
       overrides:
         disable_generic_tags.hidden: False

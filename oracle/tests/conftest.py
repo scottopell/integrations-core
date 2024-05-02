@@ -49,25 +49,32 @@ E2E_METADATA_ORACLE_CLIENT = {
         '{}/docker/client/sqlnet.ora:/opt/oracle/instantclient_19_3/sqlnet.ora'.format(HERE),
         '{}/docker/client/tnsnames.ora:/opt/oracle/instantclient_19_3/tnsnames.ora'.format(HERE),
         '{}/docker/client/listener.ora:/opt/oracle/instantclient_19_3/listener.ora'.format(HERE),
+        '{}/docker/client/sqlnet.ora:/opt/oracle/instantclient_19_3/network/admin/sqlnet.ora'.format(HERE),
+        '{}/docker/client/tnsnames.ora:/opt/oracle/instantclient_19_3/network/admin/tnsnames.ora'.format(HERE),
+        '{}/docker/client/client_wallet/cwallet.sso:/opt/oracle/instantclient_19_3/network/admin/cwallet.sso'.format(
+            HERE
+        ),
     ],
     'start_commands': [
         'bash /tmp/install_jdbc_client.sh',
         'mkdir -p /usr/local/share/ca-certificates',
-        'touch /usr/local/share/ca-certificates/ca-cert.crt',
         'cp /opt/oracle/instantclient_19_3/client_wallet/cert.pem /usr/local/share/ca-certificates/ca-certificate.crt',
-        'update-ca-certificates',
+        'update-ca-certificates --verbose --fresh',
     ],
+    'env_vars': {
+        'LD_LIBRARY_PATH': '/opt/oracle/instantclient_19_3',
+    },
 }
 
 
 @pytest.fixture
 def check(instance):
-    return Oracle(CHECK_NAME, {}, [instance])
+    return Oracle(CHECK_NAME, {"use_instant_client": False}, [instance])
 
 
 @pytest.fixture
 def tcps_check(tcps_instance):
-    return Oracle(CHECK_NAME, {}, [tcps_instance])
+    return Oracle(CHECK_NAME, {"use_instant_client": False}, [tcps_instance])
 
 
 @pytest.fixture
@@ -79,6 +86,7 @@ def instance():
         'service_name': 'xe',
         'protocol': 'TCP',
         'tags': ['optional:tag1'],
+        'loader': 'python',
     }
 
 
@@ -89,8 +97,9 @@ def tcps_instance():
         'username': 'system',
         'password': 'oracle',
         'service_name': 'xe',
-        'protocol': 'TCPS',
+        'protocol': 'TCP',
         'tags': ['optional:tag1'],
+        'loader': 'python',
     }
 
 
@@ -102,13 +111,18 @@ def dd_environment():
         'password': PASSWORD,
         'service_name': 'InfraDB.us.oracle.com',
         'protocol': 'TCP',
+        'loader': 'python',
     }
+
+    use_instant_client = False
 
     if CLIENT_LIB == 'jdbc':
         e2e_metadata = E2E_METADATA_JDBC_CLIENT
         instance['jdbc_driver_path'] = '/opt/oracle/instantclient_19_3/ojdbc8.jar'
     else:
         e2e_metadata = E2E_METADATA_ORACLE_CLIENT
+        if CLIENT_LIB == 'oracle-instant-client':
+            use_instant_client = True
 
     # Set additional config options for TCPS
     if ENABLE_TCPS:
@@ -128,8 +142,12 @@ def dd_environment():
         env_vars={'ORACLE_DATABASE_VERSION': ORACLE_DATABASE_VERSION},
         attempts=20,
         attempts_wait=5,
+        build=True,
     ):
-        yield instance, e2e_metadata
+        yield {
+            'init_config': {"use_instant_client": use_instant_client},
+            'instances': [instance],
+        }, e2e_metadata
 
 
 @pytest.fixture
@@ -140,6 +158,7 @@ def bad_instance():
         "server": "localhost:1521",
         "service_name": "InfraDB.us.oracle.com",
         "username": "datadog",
+        "loader": "python",
     }
 
 

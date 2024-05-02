@@ -12,10 +12,11 @@
     "title": "SSH",
     "media": [],
     "classifier_tags": [
+      "Category::Developer Tools",
+      "Category::Network",
       "Supported OS::Linux",
-      "Supported OS::macOS",
       "Supported OS::Windows",
-      "Category::Network"
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -24,7 +25,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "SSH",
@@ -47,7 +47,9 @@
         "sftp",
         "sshd",
         "sshd:"
-      ]
+      ],
+      "source_type_id": 90,
+      "auto_install": true
     }
   }
 }

@@ -12,10 +12,11 @@
     "title": "Avi Vantage",
     "media": [],
     "classifier_tags": [
+      "Category::Cloud",
+      "Category::Network",
       "Supported OS::Linux",
-      "Supported OS::macOS",
       "Supported OS::Windows",
-      "Category::Network"
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -24,7 +25,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "Avi Vantage",
@@ -46,7 +46,9 @@
       },
       "service_checks": {
         "metadata_path": "assets/service_checks.json"
-      }
+      },
+      "source_type_id": 10189,
+      "auto_install": true
     },
     "dashboards": {
       "Avi Vantage - Overview": "assets/dashboards/overview.json"

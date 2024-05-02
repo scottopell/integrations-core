@@ -2,8 +2,11 @@
 # (C) Datadog, Inc. 2020-present
 # All rights reserved
 # Licensed under a 3-clause BSD style license (see LICENSE)
+import datetime
+import decimal
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
+from ipaddress import IPv4Address
 
 import mock
 import pytest
@@ -14,8 +17,10 @@ from datadog_checks.base.utils.db.utils import (
     ConstantRateLimiter,
     DBMAsyncJob,
     RateLimitingTTLCache,
+    default_json_event_encoding,
     obfuscate_sql_with_metadata,
     resolve_db_host,
+    tracked_query,
 )
 from datadog_checks.base.utils.serialization import json
 
@@ -164,6 +169,32 @@ def test_obfuscate_sql_with_metadata(obfuscator_return_value, expected_value):
     assert statement['metadata'] == {}
 
 
+@pytest.mark.parametrize(
+    "input_query,expected_query,replace_null_character",
+    [
+        (
+            "SELECT * FROM randomtable where name = '123\x00'",
+            "SELECT * FROM randomtable where name = '123'",
+            True,
+        ),
+        (
+            "SELECT * FROM randomtable where name = '123\x00'",
+            "SELECT * FROM randomtable where name = '123\x00'",
+            False,
+        ),
+    ],
+)
+def test_obfuscate_sql_with_metadata_replace_null_character(input_query, expected_query, replace_null_character):
+    def _mock_obfuscate_sql(query, options=None):
+        return json.dumps({'query': query, 'metadata': {}})
+
+    # Check that it can handle null characters
+    with mock.patch.object(datadog_agent, 'obfuscate_sql', passthrough=True) as mock_agent:
+        mock_agent.side_effect = _mock_obfuscate_sql
+        statement = obfuscate_sql_with_metadata(input_query, None, replace_null_character=replace_null_character)
+        assert statement['query'] == expected_query
+
+
 class TestJob(DBMAsyncJob):
     def __init__(self, check, run_sync=False, enabled=True, rate_limit=10, min_collection_interval=15):
         super(TestJob, self).__init__(
@@ -254,3 +285,34 @@ def test_dbm_async_job_inactive_stop(aggregator):
     job.run_job_loop([])
     job._job_loop_future.result()
     aggregator.assert_metric("dd.test-dbms.async_job.inactive_stop", tags=['job:test-job'])
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        pytest.param({"foo": "bar"}, id='dict'),
+        pytest.param({"foo": "bar", "baz": 1}, id='dict-with-multiple-keys'),
+        pytest.param({"foo": "bar", "baz": 1, "qux": {"quux": "corge"}}, id='nested-dict'),
+        pytest.param({"foo": b'bar'}, id='dict-with-bytes'),
+        pytest.param({"foo": decimal.Decimal("1.0")}, id='dict-with-decimal'),
+        pytest.param({"foo": datetime.datetime(2020, 1, 1, 0, 0, 0)}, id='dict-with-datetime'),
+        pytest.param({"foo": datetime.date(2020, 1, 1)}, id='dict-with-date'),
+        pytest.param({"foo": IPv4Address(u"192.168.1.1")}, id='dict-with-IPv4Address'),
+    ],
+)
+def test_default_json_event_encoding(input):
+    # assert that the default json event encoding can handle all defined types without raising TypeError
+    assert json.dumps(input, default=default_json_event_encoding)
+
+
+def test_tracked_query(aggregator):
+    with mock.patch('time.time', side_effect=[100, 101]):
+        with tracked_query(
+            check=AgentCheck(name="testcheck"),
+            operation="test_query",
+            tags=["test:tag"],
+        ):
+            pass
+        aggregator.assert_metric(
+            "dd.testcheck.operation.time", tags=["test:tag", "operation:test_query"], count=1, value=1000.0
+        )

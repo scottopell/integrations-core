@@ -5,22 +5,35 @@
 from __future__ import division
 
 import copy
+import time
 import traceback
 from collections import defaultdict
 from contextlib import closing, contextmanager
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional  # noqa: F401
 
 import pymysql
+from cachetools import TTLCache
 from six import PY3, iteritems, itervalues
 
 from datadog_checks.base import AgentCheck, is_affirmative
 from datadog_checks.base.utils.db import QueryExecutor, QueryManager
-from datadog_checks.base.utils.db.utils import resolve_db_host as agent_host_resolver
+from datadog_checks.base.utils.db.utils import (
+    default_json_event_encoding,
+    tracked_query,
+)
+from datadog_checks.base.utils.db.utils import (
+    resolve_db_host as agent_host_resolver,
+)
+from datadog_checks.base.utils.serialization import json
+from datadog_checks.mysql.cursor import CommenterCursor, CommenterDictCursor, CommenterSSCursor
 
+from .__about__ import __version__
 from .activity import MySQLActivity
 from .collection_utils import collect_all_scalars, collect_scalar, collect_string, collect_type
 from .config import MySQLConfig
 from .const import (
+    AWS_RDS_HOSTNAME_SUFFIX,
+    AZURE_DEPLOYMENT_TYPE_TO_RESOURCE_TYPE,
     BINLOG_VARS,
     COUNT,
     GALERA_VARS,
@@ -42,7 +55,9 @@ from .const import (
     VARIABLES_VARS,
 )
 from .innodb_metrics import InnoDBMetrics
+from .metadata import MySQLMetadata
 from .queries import (
+    QUERY_DEADLOCKS,
     QUERY_USER_CONNECTIONS,
     SQL_95TH_PERCENTILE,
     SQL_AVG_QUERY_RUN_TIME,
@@ -62,7 +77,7 @@ from .queries import (
 )
 from .statement_samples import MySQLStatementSamples
 from .statements import MySQLStatementMetrics
-from .util import DatabaseConfigurationError
+from .util import DatabaseConfigurationError, connect_with_autocommit  # noqa: F401
 from .version_utils import get_version
 
 try:
@@ -98,6 +113,8 @@ class MySql(AgentCheck):
         self._agent_hostname = None
         self._is_aurora = None
         self._config = MySQLConfig(self.instance)
+        self.tags = self._config.tags
+        self.cloud_metadata = self._config.cloud_metadata
 
         # Create a new connection on every check run
         self._conn = None
@@ -112,12 +129,23 @@ class MySql(AgentCheck):
         self._warnings_by_code = {}
         self._statement_metrics = MySQLStatementMetrics(self, self._config, self._get_connection_args())
         self._statement_samples = MySQLStatementSamples(self, self._config, self._get_connection_args())
+        self._mysql_metadata = MySQLMetadata(self, self._config, self._get_connection_args())
         self._query_activity = MySQLActivity(self, self._config, self._get_connection_args())
+        # _database_instance_emitted: limit the collection and transmission of the database instance metadata
+        self._database_instance_emitted = TTLCache(
+            maxsize=1,
+            ttl=self._config.database_instance_collection_interval,
+        )  # type: TTLCache
 
-        self._runtime_queries = None
+        self._runtime_queries_cached = None
+        # Keep a copy of the tags without the internal resource tags so they can be used for paths that don't
+        # go through the agent internal metrics submission processing those tags
+        self._non_internal_tags = copy.deepcopy(self.tags)
+        self.set_resource_tags()
+        self._is_innodb_engine_enabled_cached = None
 
     def execute_query_raw(self, query):
-        with closing(self._conn.cursor(pymysql.cursors.SSCursor)) as cursor:
+        with closing(self._conn.cursor(CommenterSSCursor)) as cursor:
             cursor.execute(query)
             for row in cursor.fetchall_unbuffered():
                 yield row
@@ -133,10 +161,8 @@ class MySql(AgentCheck):
         if self._resolved_hostname is None:
             if self._config.reported_hostname:
                 self._resolved_hostname = self._config.reported_hostname
-            elif self._config.dbm_enabled or self.disable_generic_tags:
-                self._resolved_hostname = self.resolve_db_host()
             else:
-                self._resolved_hostname = self.agent_hostname
+                self._resolved_hostname = self.resolve_db_host()
         return self._resolved_hostname
 
     @property
@@ -146,25 +172,55 @@ class MySql(AgentCheck):
             self._agent_hostname = datadog_agent.get_hostname()
         return self._agent_hostname
 
+    def set_resource_tags(self):
+        if self.cloud_metadata.get("gcp") is not None:
+            self.tags.append(
+                "dd.internal.resource:gcp_sql_database_instance:{}:{}".format(
+                    self.cloud_metadata.get("gcp")["project_id"], self.cloud_metadata.get("gcp")["instance_id"]
+                )
+            )
+        if self.cloud_metadata.get("aws") is not None:
+            self.tags.append(
+                "dd.internal.resource:aws_rds_instance:{}".format(
+                    self.cloud_metadata.get("aws")["instance_endpoint"],
+                )
+            )
+        elif AWS_RDS_HOSTNAME_SUFFIX in self.resolved_hostname:
+            # allow for detecting if the host is an RDS host, and emit
+            # the resource properly even if the `aws` config is unset
+            self.tags.append("dd.internal.resource:aws_rds_instance:{}".format(self.resolved_hostname))
+        if self.cloud_metadata.get("azure") is not None:
+            deployment_type = self.cloud_metadata.get("azure")["deployment_type"]
+            # some `deployment_type`s map to multiple `resource_type`s
+            resource_type = AZURE_DEPLOYMENT_TYPE_TO_RESOURCE_TYPE.get(deployment_type)
+            if resource_type:
+                self.tags.append(
+                    "dd.internal.resource:{}:{}".format(resource_type, self.cloud_metadata.get("azure")["name"])
+                )
+        # finally, emit a `database_instance` resource for this instance
+        self.tags.append(
+            "dd.internal.resource:database_instance:{}".format(
+                self.resolved_hostname,
+            )
+        )
+
     def _check_database_configuration(self, db):
         self._check_performance_schema_enabled(db)
         self._check_events_wait_current_enabled(db)
 
     def _check_performance_schema_enabled(self, db):
-        if self.performance_schema_enabled is None:
-            with closing(db.cursor()) as cursor:
-                cursor.execute("SHOW VARIABLES LIKE 'performance_schema'")
-                results = dict(cursor.fetchall())
-                self.performance_schema_enabled = self._get_variable_enabled(results, 'performance_schema')
+        with closing(db.cursor(CommenterCursor)) as cursor:
+            cursor.execute("SHOW VARIABLES LIKE 'performance_schema'")
+            results = dict(cursor.fetchall())
+            self.performance_schema_enabled = self._get_variable_enabled(results, 'performance_schema')
 
         return self.performance_schema_enabled
 
     def check_userstat_enabled(self, db):
-        if self.userstat_enabled is None:
-            with closing(db.cursor()) as cursor:
-                cursor.execute("SHOW VARIABLES LIKE 'userstat'")
-                results = dict(cursor.fetchall())
-                self.userstat_enabled = self._get_variable_enabled(results, 'userstat')
+        with closing(db.cursor(CommenterCursor)) as cursor:
+            cursor.execute("SHOW VARIABLES LIKE 'userstat'")
+            results = dict(cursor.fetchall())
+            self.userstat_enabled = self._get_variable_enabled(results, 'userstat')
 
         return self.userstat_enabled
 
@@ -173,20 +229,27 @@ class MySql(AgentCheck):
             self.log.debug("skipping _check_events_wait_current_enabled because dbm activity collection is not enabled")
             return
         if not self._check_performance_schema_enabled(db):
+            # set events_wait_current_enabled to False if performance_schema is not enabled
             self.log.debug('`performance_schema` is required to enable `events_waits_current`')
-            return
-        if self.events_wait_current_enabled is None:
-            with closing(db.cursor()) as cursor:
-                cursor.execute(
-                    """\
-                    SELECT
-                        NAME,
-                        ENABLED
-                    FROM performance_schema.setup_consumers WHERE NAME = 'events_waits_current'
-                    """
-                )
-                results = dict(cursor.fetchall())
-                self.events_wait_current_enabled = self._get_variable_enabled(results, 'events_waits_current')
+            self.events_wait_current_enabled = False
+            return self.events_wait_current_enabled
+        with closing(db.cursor(CommenterCursor)) as cursor:
+            cursor.execute(
+                """\
+                SELECT
+                    NAME,
+                    ENABLED
+                FROM performance_schema.setup_consumers WHERE NAME = 'events_waits_current'
+                """
+            )
+            results = dict(cursor.fetchall())
+            events_wait_current_enabled = self._get_variable_enabled(results, 'events_waits_current')
+            self.log.debug(
+                '`events_wait_current_enabled` was %s. Setting it to %s',
+                self.events_wait_current_enabled,
+                events_wait_current_enabled,
+            )
+            self.events_wait_current_enabled = events_wait_current_enabled
         return self.events_wait_current_enabled
 
     def resolve_db_host(self):
@@ -194,6 +257,13 @@ class MySql(AgentCheck):
 
     def _get_debug_tags(self):
         return ['agent_hostname:{}'.format(datadog_agent.get_hostname())]
+
+    def debug_stats_kwargs(self, tags=None):
+        tags = self.tags + self._get_debug_tags() + (tags or [])
+        return {
+            'tags': tags,
+            "hostname": self.resolved_hostname,
+        }
 
     @classmethod
     def get_library_versions(cls):
@@ -206,7 +276,7 @@ class MySql(AgentCheck):
         if self.instance.get('pass'):
             self._log_deprecation('_config_renamed', 'pass', 'password')
 
-        tags = list(self._config.tags)
+        tags = list(self.tags)
         self._set_qcache_stats()
         with self._connect() as db:
             try:
@@ -215,6 +285,7 @@ class MySql(AgentCheck):
                 # version collection
                 self.version = get_version(db)
                 self._send_metadata()
+                self._send_database_instance_metadata()
 
                 self.is_mariadb = self.version.flavor == "MariaDB"
                 if self._get_is_aurora(db):
@@ -229,14 +300,15 @@ class MySql(AgentCheck):
                 if not self._config.only_custom_queries:
                     self._collect_metrics(db, tags=tags)
                     self._collect_system_metrics(self._config.host, db, tags)
-                    if self.runtime_queries:
-                        self.runtime_queries.execute(extra_tags=tags)
+                    if self._get_runtime_queries(db):
+                        self._get_runtime_queries(db).execute(extra_tags=tags)
 
                 if self._config.dbm_enabled:
                     dbm_tags = list(set(self.service_check_tags) | set(tags))
                     self._statement_metrics.run_job_loop(dbm_tags)
                     self._statement_samples.run_job_loop(dbm_tags)
                     self._query_activity.run_job_loop(dbm_tags)
+                    self._mysql_metadata.run_job_loop(dbm_tags)
 
                 # keeping track of these:
                 self._put_qcache_stats()
@@ -255,6 +327,7 @@ class MySql(AgentCheck):
         self._statement_samples.cancel()
         self._statement_metrics.cancel()
         self._query_activity.cancel()
+        self._mysql_metadata.cancel()
 
     def _new_query_executor(self, queries):
         return QueryExecutor(
@@ -262,25 +335,28 @@ class MySql(AgentCheck):
             self,
             queries=queries,
             hostname=self.resolved_hostname,
+            track_operation_time=True,
         )
 
-    @property
-    def runtime_queries(self):
+    def _get_runtime_queries(self, db):
         """
         Initializes runtime queries which depend on outside factors (e.g. permission checks) to load first.
         """
-        if self._runtime_queries:
-            return self._runtime_queries
+        if self._runtime_queries_cached:
+            return self._runtime_queries_cached
 
         queries = []
+
+        if self._check_innodb_engine_enabled(db):
+            queries.extend([QUERY_DEADLOCKS])
 
         if self.performance_schema_enabled:
             queries.extend([QUERY_USER_CONNECTIONS])
 
-        self._runtime_queries = self._new_query_executor(queries)
-        self._runtime_queries.compile_queries()
+        self._runtime_queries_cached = self._new_query_executor(queries)
+        self._runtime_queries_cached.compile_queries()
         self.log.debug("initialized runtime queries")
-        return self._runtime_queries
+        return self._runtime_queries_cached
 
     def _set_qcache_stats(self):
         host_key = self._get_host_key()
@@ -311,6 +387,7 @@ class MySql(AgentCheck):
         connection_args = {
             'ssl': ssl,
             'connect_timeout': self._config.connect_timeout,
+            'read_timeout': self._config.read_timeout,
             'autocommit': True,
         }
         if self._config.charset:
@@ -337,7 +414,7 @@ class MySql(AgentCheck):
             server = self._config.mysql_sock if self._config.mysql_sock != '' else self._config.host
         service_check_tags = [
             'port:{}'.format(self._config.port if self._config.port else 'unix_socket'),
-        ] + self._config.tags
+        ] + self.tags
         if not self.disable_generic_tags:
             service_check_tags.append('server:{0}'.format(server))
         return service_check_tags
@@ -348,7 +425,7 @@ class MySql(AgentCheck):
         db = None
         try:
             connect_args = self._get_connection_args()
-            db = pymysql.connect(**connect_args)
+            db = connect_with_autocommit(**connect_args)
             self.log.debug("Connected to MySQL")
             self.service_check_tags = list(set(service_check_tags))
             self.service_check(
@@ -365,23 +442,26 @@ class MySql(AgentCheck):
                 db.close()
 
     def _collect_metrics(self, db, tags):
-
         # Get aggregate of all VARS we want to collect
         metrics = copy.deepcopy(STATUS_VARS)
 
         # collect results from db
-        results = self._get_stats_from_status(db)
-        results.update(self._get_stats_from_variables(db))
+        with tracked_query(self, operation="status_metrics"):
+            results = self._get_stats_from_status(db)
+        with tracked_query(self, operation="variables_metrics"):
+            results.update(self._get_stats_from_variables(db))
 
         if not is_affirmative(
             self._config.options.get('disable_innodb_metrics', False)
-        ) and self._is_innodb_engine_enabled(db):
-            results.update(self.innodb_stats.get_stats_from_innodb_status(db))
+        ) and self._check_innodb_engine_enabled(db):
+            with tracked_query(self, operation="innodb_metrics"):
+                results.update(self.innodb_stats.get_stats_from_innodb_status(db))
             self.innodb_stats.process_innodb_stats(results, self._config.options, metrics)
 
         # Binary log statistics
         if self._get_variable_enabled(results, 'log_bin'):
-            results['Binlog_space_usage_bytes'] = self._get_binary_log_stats(db)
+            with tracked_query(self, operation="binary_log_metrics"):
+                results['Binlog_space_usage_bytes'] = self._get_binary_log_stats(db)
 
         # Compute key cache utilization metric
         key_blocks_unused = collect_scalar('Key_blocks_unused', results)
@@ -428,43 +508,57 @@ class MySql(AgentCheck):
                 "[Deprecated] The `extra_performance_metrics` option will be removed in a future release. "
                 "Utilize the `custom_queries` feature if the functionality is needed.",
             )
-            results['perf_digest_95th_percentile_avg_us'] = self._get_query_exec_time_95th_us(db)
-            results['query_run_time_avg'] = self._query_exec_time_per_schema(db)
+            with tracked_query(self, operation="exec_time_95th_metrics"):
+                results['perf_digest_95th_percentile_avg_us'] = self._get_query_exec_time_95th_us(db)
+            with tracked_query(self, operation="exec_time_per_schema_metrics"):
+                results['query_run_time_avg'] = self._query_exec_time_per_schema(db)
             metrics.update(PERFORMANCE_VARS)
 
         if is_affirmative(self._config.options.get('schema_size_metrics', False)):
             # report avg query response time per schema to Datadog
-            results['information_schema_size'] = self._query_size_per_schema(db)
+            with tracked_query(self, operation="schema_size_metrics"):
+                results['information_schema_size'] = self._query_size_per_schema(db)
             metrics.update(SCHEMA_VARS)
 
         if is_affirmative(self._config.options.get('table_rows_stats_metrics', False)) and self.userstat_enabled:
             # report size of tables in MiB to Datadog
             self.log.debug("Collecting Table Row Stats Metrics.")
-            (rows_read_total, rows_changed_total) = self._query_rows_stats_per_table(db)
+            with tracked_query(self, operation="table_rows_stats_metrics"):
+                (rows_read_total, rows_changed_total) = self._query_rows_stats_per_table(db)
             results['information_table_rows_read_total'] = rows_read_total
             results['information_table_rows_changed_total'] = rows_changed_total
             metrics.update(TABLE_ROWS_STATS_VARS)
 
         if is_affirmative(self._config.options.get('table_size_metrics', False)):
             # report size of tables in MiB to Datadog
-            (table_index_size, table_data_size) = self._query_size_per_table(db)
+            with tracked_query(self, operation="table_size_metrics"):
+                (table_index_size, table_data_size) = self._query_size_per_table(db)
             results['information_table_index_size'] = table_index_size
             results['information_table_data_size'] = table_data_size
             metrics.update(TABLE_VARS)
 
         if is_affirmative(self._config.options.get('system_table_size_metrics', False)):
             # report size of tables in MiB to Datadog
-            (table_index_size, table_data_size) = self._query_size_per_table(db, system_tables=True)
-            results['information_table_index_size'] = table_index_size
-            results['information_table_data_size'] = table_data_size
+            with tracked_query(self, operation="system_table_size_metrics"):
+                (table_index_size, table_data_size) = self._query_size_per_table(db, system_tables=True)
+            if results.get('information_table_index_size'):
+                results['information_table_index_size'].update(table_index_size)
+            else:
+                results['information_table_index_size'] = table_index_size
+            if results.get('information_table_data_size'):
+                results['information_table_data_size'].update(table_data_size)
+            else:
+                results['information_table_data_size'] = table_data_size
             metrics.update(TABLE_VARS)
 
         if is_affirmative(self._config.options.get('replication', self._config.dbm_enabled)):
             if self.performance_schema_enabled and self._is_group_replication_active(db):
                 self.log.debug('Collecting group replication metrics.')
-                self._collect_group_replica_metrics(db, results)
+                with tracked_query(self, operation="group_replication_metrics"):
+                    self._collect_group_replica_metrics(db, results)
             else:
-                replication_metrics = self._collect_replication_metrics(db, results, above_560)
+                with tracked_query(self, operation="replication_metrics"):
+                    replication_metrics = self._collect_replication_metrics(db, results, above_560)
                 metrics.update(replication_metrics)
                 self._check_replication_status(results)
 
@@ -547,7 +641,7 @@ class MySql(AgentCheck):
 
     def _collect_group_replica_metrics(self, db, results):
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 cursor.execute(SQL_GROUP_REPLICATION_MEMBER)
                 replica_results = cursor.fetchone()
                 status = self.OK
@@ -564,7 +658,7 @@ class MySql(AgentCheck):
                         'member_state:{}'.format(replica_results[1]),
                         'member_role:{}'.format(replica_results[2]),
                     ]
-                    self.gauge('mysql.replication.group.member_status', 1, tags=additional_tags + self._config.tags)
+                    self.gauge('mysql.replication.group.member_status', 1, tags=additional_tags + self.tags)
 
                 self.service_check(
                     self.GROUP_REPLICATION_SERVICE_CHECK_NAME,
@@ -589,10 +683,8 @@ class MySql(AgentCheck):
                     'Transactions_local_proposed': r[7],
                     'Transactions_local_rollback': r[8],
                 }
-                # Submit metrics now so it's possible to attach `channel_name` tag
-                self._submit_metrics(
-                    GROUP_REPLICATION_VARS, results, self._config.tags + ['channel_name:{}'.format(r[0])]
-                )
+                # Submit metrics now, so it's possible to attach `channel_name` tag
+                self._submit_metrics(GROUP_REPLICATION_VARS, results, self.tags + ['channel_name:{}'.format(r[0])])
 
                 return GROUP_REPLICATION_VARS
         except Exception as e:
@@ -655,7 +747,7 @@ class MySql(AgentCheck):
         self.gauge(
             name=self.SLAVE_SERVICE_CHECK_NAME,
             value=1 if status == AgentCheck.OK else 0,
-            tags=self._config.tags + additional_tags,
+            tags=self.tags + additional_tags,
             hostname=self.resolved_hostname,
         )
         # deprecated in favor of service_check("mysql.replication.replica_running")
@@ -685,7 +777,7 @@ class MySql(AgentCheck):
         return collect_string('Master_Host', results) or collect_string('Source_Host', results)
 
     def _is_group_replication_active(self, db):
-        with closing(db.cursor()) as cursor:
+        with closing(db.cursor(CommenterCursor)) as cursor:
             cursor.execute(SQL_GROUP_REPLICATION_PLUGIN_STATUS)
             r = cursor.fetchone()
 
@@ -736,7 +828,7 @@ class MySql(AgentCheck):
         field_metric_map: {"Seconds_behind_master": "mysqlSecondsBehindMaster"}
         """
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 cursor.execute(query)
                 result = cursor.fetchone()
                 if result is not None:
@@ -773,7 +865,7 @@ class MySql(AgentCheck):
         runtime_tags = []
 
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 cursor.execute(SQL_REPLICATION_ROLE_AWS_AURORA)
                 replication_role = cursor.fetchone()[0]
 
@@ -818,7 +910,7 @@ class MySql(AgentCheck):
         """
         pid_file = None
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 cursor.execute("SHOW VARIABLES LIKE 'pid_file'")
                 pid_file = cursor.fetchone()[1]
         except Exception:
@@ -864,7 +956,7 @@ class MySql(AgentCheck):
             return self._is_aurora
 
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 cursor.execute(SQL_SERVER_ID_AWS_AURORA)
                 if len(cursor.fetchall()) > 0:
                     self._is_aurora = True
@@ -883,7 +975,7 @@ class MySql(AgentCheck):
 
     @classmethod
     def _get_stats_from_status(cls, db):
-        with closing(db.cursor()) as cursor:
+        with closing(db.cursor(CommenterCursor)) as cursor:
             cursor.execute("SHOW /*!50002 GLOBAL */ STATUS;")
             results = dict(cursor.fetchall())
 
@@ -891,7 +983,7 @@ class MySql(AgentCheck):
 
     @classmethod
     def _get_stats_from_variables(cls, db):
-        with closing(db.cursor()) as cursor:
+        with closing(db.cursor(CommenterCursor)) as cursor:
             cursor.execute("SHOW GLOBAL VARIABLES;")
             results = dict(cursor.fetchall())
 
@@ -899,7 +991,7 @@ class MySql(AgentCheck):
 
     def _get_binary_log_stats(self, db):
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 cursor.execute("SHOW BINARY LOGS;")
                 cursor_results = cursor.fetchall()
                 master_logs = {result[0]: result[1] for result in cursor_results}
@@ -913,23 +1005,26 @@ class MySql(AgentCheck):
             self.warning("Privileges error accessing the BINARY LOGS (must grant REPLICATION CLIENT): %s", e)
             return None
 
-    def _is_innodb_engine_enabled(self, db):
+    def _check_innodb_engine_enabled(self, db):
         # Whether InnoDB engine is available or not can be found out either
         # from the output of SHOW ENGINES or from information_schema.ENGINES
         # table. Later is chosen because that involves no string parsing.
+        if self._is_innodb_engine_enabled_cached is not None:
+            return self._is_innodb_engine_enabled_cached
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 cursor.execute(SQL_INNODB_ENGINES)
-                return cursor.rowcount > 0
+                self._is_innodb_engine_enabled_cached = cursor.rowcount > 0
 
         except (pymysql.err.InternalError, pymysql.err.OperationalError, pymysql.err.NotSupportedError) as e:
             self.warning("Possibly innodb stats unavailable - error querying engines table: %s", e)
-            return False
+            self._is_innodb_engine_enabled_cached = False
+        return self._is_innodb_engine_enabled_cached
 
     def _get_replica_stats(self, db, is_mariadb, replication_channel):
         replica_results = defaultdict(dict)
         try:
-            with closing(db.cursor(pymysql.cursors.DictCursor)) as cursor:
+            with closing(db.cursor(CommenterDictCursor)) as cursor:
                 if is_mariadb and replication_channel:
                     cursor.execute("SET @@default_master_connection = '{0}';".format(replication_channel))
                 cursor.execute(show_replica_status_query(self.version, is_mariadb, replication_channel))
@@ -955,7 +1050,7 @@ class MySql(AgentCheck):
                 self.warning("Privileges error getting replication status (must grant REPLICATION CLIENT): %s", e)
 
         try:
-            with closing(db.cursor(pymysql.cursors.DictCursor)) as cursor:
+            with closing(db.cursor(CommenterDictCursor)) as cursor:
                 cursor.execute("SHOW MASTER STATUS;")
                 binlog_results = cursor.fetchone()
                 if binlog_results:
@@ -972,7 +1067,7 @@ class MySql(AgentCheck):
         2. The `information_schema.processlist` table. Blocking
         """
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 if above_560 and nonblocking:
                     # Query `performance_schema.threads` instead of `
                     # information_schema.processlist` to avoid mutex impact on performance.
@@ -1003,7 +1098,7 @@ class MySql(AgentCheck):
         # Fetches the 95th percentile query execution time and returns the value
         # in microseconds
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 cursor.execute(SQL_95TH_PERCENTILE)
 
                 if cursor.rowcount < 1:
@@ -1025,7 +1120,7 @@ class MySql(AgentCheck):
         # Fetches the avg query execution time per schema and returns the
         # value in microseconds
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 cursor.execute(SQL_AVG_QUERY_RUN_TIME)
 
                 if cursor.rowcount < 1:
@@ -1051,7 +1146,7 @@ class MySql(AgentCheck):
 
     def _query_size_per_table(self, db, system_tables=False):
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 if system_tables:
                     cursor.execute(SQL_QUERY_SYSTEM_TABLE_SIZE)
                 else:
@@ -1083,7 +1178,7 @@ class MySql(AgentCheck):
         # Fetches the avg query execution time per schema and returns the
         # value in microseconds
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 cursor.execute(SQL_QUERY_SCHEMA_SIZE)
 
                 if cursor.rowcount < 1:
@@ -1106,7 +1201,7 @@ class MySql(AgentCheck):
 
     def _query_rows_stats_per_table(self, db):
         try:
-            with closing(db.cursor()) as cursor:
+            with closing(db.cursor(CommenterCursor)) as cursor:
                 cursor.execute(SQL_QUERY_TABLE_ROWS_STATS)
 
                 if cursor.rowcount < 1:
@@ -1169,3 +1264,24 @@ class MySql(AgentCheck):
 
         for warning in messages:
             self.warning(warning)
+
+    def _send_database_instance_metadata(self):
+        if self.resolved_hostname not in self._database_instance_emitted:
+            event = {
+                "host": self.resolved_hostname,
+                "agent_version": datadog_agent.get_version(),
+                "dbms": "mysql",
+                "kind": "database_instance",
+                "collection_interval": self._config.database_instance_collection_interval,
+                'dbms_version': self.version.version + '+' + self.version.build,
+                'integration_version': __version__,
+                "tags": self._non_internal_tags,
+                "timestamp": time.time() * 1000,
+                "cloud_metadata": self._config.cloud_metadata,
+                "metadata": {
+                    "dbm": self._config.dbm_enabled,
+                    "connection_host": self._config.host,
+                },
+            }
+            self._database_instance_emitted[self.resolved_hostname] = event
+            self.database_monitoring_metadata(json.dumps(event, default=default_json_event_encoding))

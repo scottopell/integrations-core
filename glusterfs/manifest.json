@@ -13,7 +13,7 @@
     "media": [],
     "classifier_tags": [
       "Supported OS::Linux",
-      "Category::Data Store",
+      "Category::Data Stores",
       "Category::Log Collection"
     ]
   },
@@ -23,7 +23,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "GlusterFS",
@@ -44,7 +43,9 @@
       "process_signatures": [
         "glusterd",
         "gluster"
-      ]
+      ],
+      "source_type_id": 10145,
+      "auto_install": true
     },
     "dashboards": {
       "Red Hat Gluster Storage": "assets/dashboards/red_hat_gluster_storage.json"

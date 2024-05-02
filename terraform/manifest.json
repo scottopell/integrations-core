@@ -9,13 +9,15 @@
     "support": "README.md#Support",
     "changelog": "CHANGELOG.md",
     "description": "Manage your Datadog account using Terraform",
-    "title": "terraform",
+    "title": "Terraform",
     "media": [],
     "classifier_tags": [
+      "Category::Configuration & Deployment",
+      "Category::Developer Tools",
+      "Category::Orchestration",
       "Supported OS::Linux",
-      "Supported OS::macOS",
       "Supported OS::Windows",
-      "Category::Orchestration"
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -24,7 +26,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "terraform",
@@ -34,7 +35,9 @@
       },
       "service_checks": {
         "metadata_path": "assets/service_checks.json"
-      }
+      },
+      "source_type_id": 10153,
+      "auto_install": true
     }
   }
 }

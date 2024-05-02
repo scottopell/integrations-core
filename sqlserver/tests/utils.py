@@ -12,12 +12,15 @@ import pytest
 
 from datadog_checks.dev.utils import running_on_windows_ci
 
+
+def is_always_on():
+    return os.environ["COMPOSE_FOLDER"] == 'compose-ha'
+
+
 windows_ci = pytest.mark.skipif(not running_on_windows_ci(), reason='Test can only be run on Windows CI')
 not_windows_ci = pytest.mark.skipif(running_on_windows_ci(), reason='Test cannot be run on Windows CI')
 
-always_on = pytest.mark.skipif(
-    os.environ["COMPOSE_FOLDER"] != 'compose-ha', reason='Test can only be run on AlwaysOn SQLServer instances'
-)
+always_on = pytest.mark.skipif(not is_always_on(), reason='Test can only be run on AlwaysOn SQLServer instances')
 # Do not run in environments that specify Windows ADO drivers. This is mainly important for e2e tests where the agent
 # is running in Docker where we don't bundle any ADO drivers in the container.
 not_windows_ado = pytest.mark.skipif(
@@ -193,7 +196,7 @@ class HighCardinalityQueries:
         return query.format(col=','.join(['hc1.' + col for col in columns[: randint(1, len(columns) - 1)]]))
 
     def get_conn(self):
-        conn_str = 'DRIVER={};Server={};Database=master;UID={};PWD={};'.format(
+        conn_str = 'DRIVER={};Server={};Database=master;UID={};PWD={};TrustServerCertificate=yes;'.format(
             self._db_instance_config['driver'],
             self._db_instance_config['host'],
             self._db_instance_config['username'],

@@ -12,11 +12,10 @@
     "title": "Kafka Consumer",
     "media": [],
     "classifier_tags": [
+      "Category::Message Queues",
       "Supported OS::Linux",
-      "Supported OS::macOS",
       "Supported OS::Windows",
-      "Category::Processing",
-      "Category::Messaging"
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -25,7 +24,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "Kafka Consumer",
@@ -42,7 +40,9 @@
       },
       "service_checks": {
         "metadata_path": "assets/service_checks.json"
-      }
+      },
+      "source_type_id": 10239,
+      "auto_install": true
     }
   }
 }

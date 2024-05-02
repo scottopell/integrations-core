@@ -53,8 +53,10 @@ class Envoy(AgentCheck):
         if self.stats_url is None:
             raise ConfigurationError('Envoy configuration setting `stats_url` is required')
 
-        included_metrics = set(
-            re.sub(r'^envoy\\?\.', '', s, 1)
+        self.custom_tags.append("endpoint:{}".format(self.stats_url))
+
+        included_metrics = {
+            re.sub(r'^envoy\\?\.', '', s, 1)  # noqa: B034
             for s in self.instance.get(
                 'included_metrics',
                 self.instance.get(
@@ -65,11 +67,11 @@ class Envoy(AgentCheck):
                     ),
                 ),
             )
-        )
+        }
         self.config_included_metrics = [re.compile(pattern) for pattern in included_metrics]
 
-        excluded_metrics = set(
-            re.sub(r'^envoy\\?\.', '', s, 1)
+        excluded_metrics = {
+            re.sub(r'^envoy\\?\.', '', s, 1)  # noqa: B034
             for s in self.instance.get(
                 'excluded_metrics',
                 self.instance.get(
@@ -80,7 +82,7 @@ class Envoy(AgentCheck):
                     ),
                 ),
             )
-        )
+        }
         self.config_excluded_metrics = [re.compile(pattern) for pattern in excluded_metrics]
 
         # The memory implications here are unclear to me. We may want a bloom filter

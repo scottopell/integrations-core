@@ -2,7 +2,7 @@
 # All rights reserved
 # Licensed under a 3-clause BSD style license (see LICENSE)
 
-# flake8: noqa
+# ruff: noqa
 
 """
 A lightweight Python WMI module wrapper built on top of `pywin32` and `win32com` extensions.
@@ -497,11 +497,15 @@ class WMISampler(object):
                         continue
 
                     internal_filter = map(
-                        lambda x: (prop, x)
-                        if isinstance(x, (tuple, list))
-                        else (prop, ('LIKE', x))
-                        if isinstance(x, string_types) and '%' in x
-                        else (prop, (default_wql_op, x)),
+                        lambda x: (
+                            (prop, x)
+                            if isinstance(x, (tuple, list))
+                            else (
+                                (prop, ('LIKE', x))
+                                if isinstance(x, string_types) and '%' in x
+                                else (prop, (default_wql_op, x))
+                            )
+                        ),
                         value,
                     )
 

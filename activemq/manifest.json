@@ -12,12 +12,11 @@
     "title": "ActiveMQ",
     "media": [],
     "classifier_tags": [
-      "Supported OS::Linux",
-      "Supported OS::macOS",
-      "Supported OS::Windows",
       "Category::Log Collection",
-      "Category::Processing",
-      "Category::Messaging"
+      "Category::Message Queues",
+      "Supported OS::Linux",
+      "Supported OS::Windows",
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -26,7 +25,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "ActiveMQ",
@@ -49,15 +47,17 @@
       },
       "process_signatures": [
         "activemq"
-      ]
+      ],
+      "source_type_id": 40,
+      "auto_install": true
     },
     "dashboards": {
       "activemq": "assets/dashboards/activemq_dashboard.json",
       "artemis": "assets/dashboards/artemis_dashboard.json"
     },
     "monitors": {
-      "[ActiveMQ Artemis] High unrouted messages": "assets/recommended_monitors/activemq_artemis_unrouted_messages.json",
-      "[ActiveMQ Artemis] High disk store usage": "assets/recommended_monitors/activemq_artemis_high_disk_store.json"
+      "[ActiveMQ Artemis] High unrouted messages": "assets/monitors/activemq_artemis_unrouted_messages.json",
+      "[ActiveMQ Artemis] High disk store usage": "assets/monitors/activemq_artemis_high_disk_store.json"
     },
     "saved_views": {
       "activemq_processes": "assets/saved_views/activemq_processes.json"

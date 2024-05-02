@@ -12,10 +12,12 @@
     "title": "CoreDNS",
     "media": [],
     "classifier_tags": [
-      "Supported OS::Linux",
+      "Category::Caching",
       "Category::Containers",
+      "Category::Kubernetes",
+      "Category::Log Collection",
       "Category::Network",
-      "Category::Log Collection"
+      "Supported OS::Linux"
     ]
   },
   "author": {
@@ -24,7 +26,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "CoreDNS",
@@ -41,7 +42,12 @@
       },
       "service_checks": {
         "metadata_path": "assets/service_checks.json"
-      }
+      },
+      "process_signatures": [
+        "coredns"
+      ],
+      "source_type_id": 10038,
+      "auto_install": true
     },
     "dashboards": {
       "CoreDNS": "assets/dashboards/coredns.json"

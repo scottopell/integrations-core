@@ -12,7 +12,7 @@ The JBoss/WildFly check is included in the [Datadog Agent][3] package so you don
 
 ### Configuration
 
-This check has a limit of 350 metrics per instance. The number of returned metrics is indicated in the info page. You can specify the metrics you are interested in by editing the configuration below. To learn how to customize the collected metrics, see the [JMX Checks documentation][4] for more detailed instructions. If you need to monitor more metrics, contact [Datadog support][5].
+This check has a limit of 350 metrics per instance. The number of returned metrics is indicated in [the status page][11]. You can specify the metrics you are interested in by editing the configuration below. To learn how to customize the collected metrics, see the [JMX Checks documentation][4] for more detailed instructions. If you need to monitor more metrics, contact [Datadog support][5].
 
 <!-- xxx tabs xxx -->
 <!-- xxx tab "Host" xxx -->
@@ -105,7 +105,7 @@ Need help? Contact [Datadog support][5].
 
 [1]: https://developers.redhat.com/products/eap/overview
 [2]: http://wildfly.org
-[3]: https://app.datadoghq.com/account/settings#agent
+[3]: https://app.datadoghq.com/account/settings/agent/latest
 [4]: https://docs.datadoghq.com/integrations/java/
 [5]: https://docs.datadoghq.com/help/
 [6]: https://github.com/DataDog/integrations-core/blob/master/jboss_wildfly/datadog_checks/jboss_wildfly/data/conf.yaml.example

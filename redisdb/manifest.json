@@ -12,12 +12,13 @@
     "title": "Redis",
     "media": [],
     "classifier_tags": [
-      "Supported OS::Linux",
-      "Supported OS::macOS",
-      "Supported OS::Windows",
-      "Category::Data Store",
       "Category::Caching",
-      "Category::Log Collection"
+      "Category::Data Stores",
+      "Category::Log Collection",
+      "Category::Tracing",
+      "Supported OS::Linux",
+      "Supported OS::Windows",
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -26,7 +27,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "Redis",
@@ -46,7 +46,9 @@
       },
       "process_signatures": [
         "redis-server"
-      ]
+      ],
+      "source_type_id": 21,
+      "auto_install": true
     },
     "dashboards": {
       "redis": "assets/dashboards/overview.json"

@@ -24,7 +24,7 @@ except Exception:
 _PSUTIL_MEM_SHARED = True
 try:
     p = psutil.Process(os.getpid())
-    p.memory_info().shared
+    _ = p.memory_info().shared
 except Exception:
     _PSUTIL_MEM_SHARED = False
 
@@ -158,7 +158,7 @@ def mock_psutil_wrapper(method, accessors):
     if accessors is None:
         result = 0
     else:
-        result = dict([(accessor, 0) for accessor in accessors])
+        result = {accessor: 0 for accessor in accessors}
     return result
 
 

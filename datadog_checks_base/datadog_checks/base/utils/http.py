@@ -427,7 +427,8 @@ class RequestsWrapper(object):
             # fetch the intermediate certs
             parsed_url = urlparse(url)
             hostname = parsed_url.hostname
-            certs = self.fetch_intermediate_certs(hostname)
+            port = parsed_url.port
+            certs = self.fetch_intermediate_certs(hostname, port)
             if not certs:
                 raise e
             # retry the connection via session object
@@ -454,12 +455,12 @@ class RequestsWrapper(object):
 
         return options
 
-    def fetch_intermediate_certs(self, hostname):
+    def fetch_intermediate_certs(self, hostname, port=443):
         # TODO: prefer stdlib implementation when available, see https://bugs.python.org/issue18617
         certs = []
 
         try:
-            sock = create_socket_connection(hostname)
+            sock = create_socket_connection(hostname, port)
         except Exception as e:
             self.logger.error('Error occurred while connecting to socket to discover intermediate certificates: %s', e)
             return certs
@@ -825,6 +826,11 @@ class AuthTokenOAuthReader(object):
         else:
             self._fetch_options['client_id'] = self._client_id
             self._fetch_options['client_secret'] = self._client_secret
+
+        self._options = config.get('options', {})
+        if isinstance(self._options, dict):
+            for key, value in self._options.items():
+                self._fetch_options[key] = value
 
         self._token = None
         self._expiration = None

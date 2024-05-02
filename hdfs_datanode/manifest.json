@@ -12,11 +12,10 @@
     "title": "HDFS Datanode",
     "media": [],
     "classifier_tags": [
-      "Supported OS::Linux",
-      "Supported OS::macOS",
-      "Category::Processing",
+      "Category::Log Collection",
       "Category::OS & System",
-      "Category::Log Collection"
+      "Supported OS::Linux",
+      "Supported OS::macOS"
     ]
   },
   "author": {
@@ -25,7 +24,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "HDFS Datanode",
@@ -42,7 +40,9 @@
       },
       "service_checks": {
         "metadata_path": "assets/service_checks.json"
-      }
+      },
+      "source_type_id": 10196,
+      "auto_install": true
     },
     "dashboards": {
       "hdfs_datanode": "assets/dashboards/hdfs_datanode_dashboard.json"

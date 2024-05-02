@@ -58,6 +58,14 @@ coverage:
         target: 75
         flags:
         - argocd
+      Argo_Rollouts:
+        target: 75
+        flags:
+        - argo_rollouts
+      Argo_Workflows:
+        target: 75
+        flags:
+        - argo_workflows
       Avi_Vantage:
         target: 75
         flags:
@@ -174,6 +182,10 @@ coverage:
         target: 75
         flags:
         - eks_fargate
+      ESXi:
+        target: 75
+        flags:
+        - esxi
       Elasticsearch:
         target: 75
         flags:
@@ -190,6 +202,10 @@ coverage:
         target: 75
         flags:
         - external_dns
+      Fluentd:
+        target: 75
+        flags:
+        - fluentd
       FoundationDB:
         target: 75
         flags:
@@ -278,6 +294,10 @@ coverage:
         target: 75
         flags:
         - kafka_consumer
+      Karpenter:
+        target: 75
+        flags:
+        - karpenter
       Kong:
         target: 75
         flags:
@@ -386,6 +406,10 @@ coverage:
         target: 75
         flags:
         - network
+      Nvidia_Triton:
+        target: 75
+        flags:
+        - nvidia_triton
       OpenLDAP:
         target: 75
         flags:
@@ -442,10 +466,18 @@ coverage:
         target: 75
         flags:
         - proxysql
+      Pulsar:
+        target: 75
+        flags:
+        - pulsar
       RabbitMQ:
         target: 75
         flags:
         - rabbitmq
+      Ray:
+        target: 75
+        flags:
+        - ray
       Redis:
         target: 75
         flags:
@@ -467,7 +499,7 @@ coverage:
         flags:
         - sap_hana
       SNMP:
-        target: 75
+        target: 30
         flags:
         - snmp
       SQL_Server:
@@ -510,6 +542,10 @@ coverage:
         target: 75
         flags:
         - statsd
+      Strimzi:
+        target: 75
+        flags:
+        - strimzi
       Supervisord:
         target: 75
         flags:
@@ -534,6 +570,18 @@ coverage:
         target: 75
         flags:
         - teamcity
+      Teleport:
+        target: 75
+        flags:
+        - teleport
+      Tekton:
+        target: 75
+        flags:
+        - tekton
+      Temporal:
+        target: 75
+        flags:
+        - temporal
       Teradata:
         target: 75
         flags:
@@ -542,6 +590,10 @@ coverage:
         target: 50
         flags:
         - tokumx
+      TorchServe:
+        target: 75
+        flags:
+        - torchserve
       Traffic_Server:
         target: 75
         flags:
@@ -574,7 +626,11 @@ coverage:
         target: 75
         flags:
         - wmi_check
-      Win32:
+      Weaviate:
+        target: 75
+        flags:
+        - weaviate
+      Windows_Event_Log:
         target: 75
         flags:
         - win32_event_log
@@ -598,6 +654,10 @@ coverage:
         target: 75
         flags:
         - cert_manager
+      dcgm:
+        target: 75
+        flags:
+        - dcgm
       ddev:
         target: 75
         flags:
@@ -606,14 +666,10 @@ coverage:
         target: 75
         flags:
         - etcd
-      fluentd:
+      fluxcd:
         target: 75
         flags:
-        - fluentd
-      pulsar:
-        target: 75
-        flags:
-        - pulsar
+        - fluxcd
       vSphere:
         target: 75
         flags:
@@ -660,6 +716,16 @@ flags:
     paths:
     - arangodb/datadog_checks/arangodb
     - arangodb/tests
+  argo_rollouts:
+    carryforward: true
+    paths:
+    - argo_rollouts/datadog_checks/argo_rollouts
+    - argo_rollouts/tests
+  argo_workflows:
+    carryforward: true
+    paths:
+    - argo_workflows/datadog_checks/argo_workflows
+    - argo_workflows/tests
   argocd:
     carryforward: true
     paths:
@@ -795,10 +861,15 @@ flags:
     paths:
     - datadog_cluster_agent/datadog_checks/datadog_cluster_agent
     - datadog_cluster_agent/tests
+  dcgm:
+    carryforward: true
+    paths:
+    - dcgm/datadog_checks/dcgm
+    - dcgm/tests
   ddev:
     carryforward: true
     paths:
-    - ddev/datadog_checks/ddev
+    - ddev/src/ddev
     - ddev/tests
   directory:
     carryforward: true
@@ -845,6 +916,11 @@ flags:
     paths:
     - envoy/datadog_checks/envoy
     - envoy/tests
+  esxi:
+    carryforward: true
+    paths:
+    - esxi/datadog_checks/esxi
+    - esxi/tests
   etcd:
     carryforward: true
     paths:
@@ -865,6 +941,11 @@ flags:
     paths:
     - fluentd/datadog_checks/fluentd
     - fluentd/tests
+  fluxcd:
+    carryforward: true
+    paths:
+    - fluxcd/datadog_checks/fluxcd
+    - fluxcd/tests
   foundationdb:
     carryforward: true
     paths:
@@ -975,6 +1056,11 @@ flags:
     paths:
     - kafka_consumer/datadog_checks/kafka_consumer
     - kafka_consumer/tests
+  karpenter:
+    carryforward: true
+    paths:
+    - karpenter/datadog_checks/karpenter
+    - karpenter/tests
   kong:
     carryforward: true
     paths:
@@ -1110,6 +1196,11 @@ flags:
     paths:
     - nginx_ingress_controller/datadog_checks/nginx_ingress_controller
     - nginx_ingress_controller/tests
+  nvidia_triton:
+    carryforward: true
+    paths:
+    - nvidia_triton/datadog_checks/nvidia_triton
+    - nvidia_triton/tests
   openldap:
     carryforward: true
     paths:
@@ -1190,6 +1281,11 @@ flags:
     paths:
     - rabbitmq/datadog_checks/rabbitmq
     - rabbitmq/tests
+  ray:
+    carryforward: true
+    paths:
+    - ray/datadog_checks/ray
+    - ray/tests
   redisdb:
     carryforward: true
     paths:
@@ -1270,6 +1366,11 @@ flags:
     paths:
     - statsd/datadog_checks/statsd
     - statsd/tests
+  strimzi:
+    carryforward: true
+    paths:
+    - strimzi/datadog_checks/strimzi
+    - strimzi/tests
   supervisord:
     carryforward: true
     paths:
@@ -1295,6 +1396,21 @@ flags:
     paths:
     - teamcity/datadog_checks/teamcity
     - teamcity/tests
+  teleport:
+    carryforward: true
+    paths:
+    - teleport/datadog_checks/teleport
+    - teleport/tests
+  tekton:
+    carryforward: true
+    paths:
+    - tekton/datadog_checks/tekton
+    - tekton/tests
+  temporal:
+    carryforward: true
+    paths:
+    - temporal/datadog_checks/temporal
+    - temporal/tests
   teradata:
     carryforward: true
     paths:
@@ -1310,6 +1426,11 @@ flags:
     paths:
     - tokumx/datadog_checks/tokumx
     - tokumx/tests
+  torchserve:
+    carryforward: true
+    paths:
+    - torchserve/datadog_checks/torchserve
+    - torchserve/tests
   traffic_server:
     carryforward: true
     paths:
@@ -1350,6 +1471,11 @@ flags:
     paths:
     - vsphere/datadog_checks/vsphere
     - vsphere/tests
+  weaviate:
+    carryforward: true
+    paths:
+    - weaviate/datadog_checks/weaviate
+    - weaviate/tests
   win32_event_log:
     carryforward: true
     paths:

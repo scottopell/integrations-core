@@ -12,8 +12,9 @@
     "title": "TCP Queue Length",
     "media": [],
     "classifier_tags": [
-      "Supported OS::Linux",
-      "Category::Network"
+      "Category::Developer Tools",
+      "Category::Network",
+      "Supported OS::Linux"
     ]
   },
   "author": {
@@ -22,7 +23,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "TCP Queue Length",
@@ -37,7 +37,9 @@
       },
       "service_checks": {
         "metadata_path": "assets/service_checks.json"
-      }
+      },
+      "source_type_id": 10295,
+      "auto_install": true
     }
   }
 }

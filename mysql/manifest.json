@@ -15,7 +15,7 @@
       "Supported OS::Linux",
       "Supported OS::macOS",
       "Supported OS::Windows",
-      "Category::Data Store",
+      "Category::Data Stores",
       "Category::Log Collection"
     ]
   },
@@ -25,7 +25,6 @@
     "homepage": "https://www.datadoghq.com",
     "sales_email": "info@datadoghq.com"
   },
-  "oauth": {},
   "assets": {
     "integration": {
       "source_type_name": "MySQL",
@@ -45,7 +44,9 @@
       },
       "process_signatures": [
         "mysqld"
-      ]
+      ],
+      "source_type_id": 18,
+      "auto_install": true
     },
     "dashboards": {
       "mysql": "assets/dashboards/overview.json",

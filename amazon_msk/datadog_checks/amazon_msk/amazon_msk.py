@@ -116,11 +116,13 @@ class AmazonMskCheck(OpenMetricsBaseCheck):
             self._scraper_config['_metric_tags'] = ['broker_id:{}'.format(broker_info['BrokerId'])]
 
             for endpoint in broker_info['Endpoints']:
-                for (port, metrics_mapper, type_overrides) in self._exporter_data:
+                for port, metrics_mapper, type_overrides in self._exporter_data:
                     if port:
-                        self._scraper_config['prometheus_url'] = '{}://{}:{}{}'.format(
+                        prometheus_url = '{}://{}:{}{}'.format(
                             self._endpoint_prefix, endpoint, port, self._prometheus_metrics_path
                         )
+                        self.log.debug("OpenMetricsV1 prometheus URL: %s", prometheus_url)
+                        self._scraper_config['prometheus_url'] = prometheus_url
                         self._scraper_config['metrics_mapper'] = metrics_mapper
                         self._scraper_config['type_overrides'] = type_overrides
 
