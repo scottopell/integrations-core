@@ -5,6 +5,7 @@
 | activemq_xml | python | N/A | MetricSourceActivemqMetricSourceXml |
 | aerospike | python | N/A | MetricSourceAerospike |
 | agent_metrics | ?? | N/A | MetricSourceAgentMetricSourceMetrics |
+| airbyte | ?? | N/A | MetricSourceAirbyte |
 | airflow | python | N/A | MetricSourceAirflow |
 | amazon_eks | ?? | N/A | MetricSourceAmazonMetricSourceEks |
 | amazon_eks_blueprints | ?? | N/A | MetricSourceAmazonMetricSourceEksMetricSourceBlueprints |
@@ -12,6 +13,8 @@
 | ambari | python | N/A | MetricSourceAmbari |
 | apache | python | N/A | MetricSourceApache |
 | arangodb | python | N/A | MetricSourceArangodb |
+| argo_rollouts | python | N/A | MetricSourceArgoMetricSourceRollouts |
+| argo_workflows | python | N/A | MetricSourceArgoMetricSourceWorkflows |
 | argocd | python | N/A | MetricSourceArgocd |
 | aspdotnet | python | N/A | MetricSourceAspdotnet |
 | avi_vantage | python | N/A | MetricSourceAviMetricSourceVantage |
@@ -25,8 +28,12 @@
 | cassandra_nodetool | python | N/A | MetricSourceCassandraMetricSourceNodetool |
 | ceph | python | N/A | MetricSourceCeph |
 | cert_manager | python | N/A | MetricSourceCertMetricSourceManager |
+| checkpoint_quantum_firewall | ?? | N/A | MetricSourceCheckpointMetricSourceQuantumMetricSourceFirewall |
 | cilium | python | N/A | MetricSourceCilium |
 | cisco_aci | ?? | N/A | MetricSourceCiscoMetricSourceAci |
+| cisco_duo | ?? | N/A | MetricSourceCiscoMetricSourceDuo |
+| cisco_secure_firewall | ?? | N/A | MetricSourceCiscoMetricSourceSecureMetricSourceFirewall |
+| cisco_umbrella_dns | ?? | N/A | MetricSourceCiscoMetricSourceUmbrellaMetricSourceDns |
 | citrix_hypervisor | python | N/A | MetricSourceCitrixMetricSourceHypervisor |
 | clickhouse | python | N/A | MetricSourceClickhouse |
 | cloud_foundry_api | python | N/A | MetricSourceCloudMetricSourceFoundryMetricSourceApi |
@@ -44,6 +51,8 @@
 | crio | python | N/A | MetricSourceCrio |
 | databricks | ?? | N/A | MetricSourceDatabricks |
 | datadog_cluster_agent | python | N/A | MetricSourceDatadogMetricSourceClusterMetricSourceAgent |
+| datadog_operator | ?? | N/A | MetricSourceDatadogMetricSourceOperator |
+| dcgm | python | N/A | MetricSourceDcgm |
 | directory | python | N/A | MetricSourceDirectory |
 | disk | python | N/A | MetricSourceDisk |
 | dns_check | python | N/A | MetricSourceDnsMetricSourceCheck |
@@ -55,11 +64,13 @@
 | eks_fargate | python | N/A | MetricSourceEksMetricSourceFargate |
 | elastic | python | N/A | MetricSourceElastic |
 | envoy | python | N/A | MetricSourceEnvoy |
+| esxi | python | N/A | MetricSourceEsxi |
 | etcd | python | N/A | MetricSourceEtcd |
 | exchange_server | python | N/A | MetricSourceExchangeMetricSourceServer |
 | external_dns | python | N/A | MetricSourceExternalMetricSourceDns |
 | flink | ?? | N/A | MetricSourceFlink |
 | fluentd | python | N/A | MetricSourceFluentd |
+| fluxcd | python | N/A | MetricSourceFluxcd |
 | foundationdb | python | N/A | MetricSourceFoundationdb |
 | gearmand | python | N/A | MetricSourceGearmand |
 | gitlab | python | N/A | MetricSourceGitlab |
@@ -93,8 +104,9 @@
 | jboss_wildfly | jmx | ```       3 jboss.as  ``` | MetricSourceJbossMetricSourceWildfly |
 | jmeter | ?? | N/A | MetricSourceJmeter |
 | journald | ?? | N/A | MetricSourceJournald |
-| kafka | jmx | ```      29 'kafka.server'      15 'kafka.producer'      13 'kafka.consumer'      11 'kafka.network'       4 'kafka.controller'       1 'kafka.log'       1 '"kafka.server"'  ``` | MetricSourceKafka |
+| kafka | jmx | ```      29 'kafka.server'      15 'kafka.producer'      14 'kafka.consumer'      11 'kafka.network'       4 'kafka.controller'       1 'kafka.log'       1 '"kafka.server"'  ``` | MetricSourceKafka |
 | kafka_consumer | python | N/A | MetricSourceKafkaMetricSourceConsumer |
+| karpenter | python | N/A | MetricSourceKarpenter |
 | kong | python | N/A | MetricSourceKong |
 | kube_apiserver_metrics | python | N/A | MetricSourceKubeMetricSourceApiserverMetricSourceMetrics |
 | kube_controller_manager | python | N/A | MetricSourceKubeMetricSourceControllerMetricSourceManager |
@@ -107,6 +119,7 @@
 | kubernetes_state | python | N/A | MetricSourceKubernetesMetricSourceState |
 | kubernetes_state_core | ?? | N/A | MetricSourceKubernetesMetricSourceStateMetricSourceCore |
 | kyototycoon | python | N/A | MetricSourceKyototycoon |
+| langchain | ?? | N/A | MetricSourceLangchain |
 | lighttpd | python | N/A | MetricSourceLighttpd |
 | linkerd | python | N/A | MetricSourceLinkerd |
 | linux_proc_extras | python | N/A | MetricSourceLinuxMetricSourceProcMetricSourceExtras |
@@ -126,8 +139,10 @@
 | nginx_ingress_controller | python | N/A | MetricSourceNginxMetricSourceIngressMetricSourceController |
 | ntp | ?? | N/A | MetricSourceNtp |
 | nvidia_jetson | ?? | N/A | MetricSourceNvidiaMetricSourceJetson |
+| nvidia_triton | python | N/A | MetricSourceNvidiaMetricSourceTriton |
 | oke | ?? | N/A | MetricSourceOke |
 | oom_kill | ?? | N/A | MetricSourceOomMetricSourceKill |
+| openai | ?? | N/A | MetricSourceOpenai |
 | openldap | python | N/A | MetricSourceOpenldap |
 | openmetrics | python | N/A | MetricSourceOpenmetrics |
 | openshift | ?? | N/A | MetricSourceOpenshift |
@@ -135,6 +150,7 @@
 | openstack_controller | python | N/A | MetricSourceOpenstackMetricSourceController |
 | oracle | python | N/A | MetricSourceOracle |
 | otel | ?? | N/A | MetricSourceOtel |
+| palo_alto_panorama | ?? | N/A | MetricSourcePaloMetricSourceAltoMetricSourcePanorama |
 | pan_firewall | ?? | N/A | MetricSourcePanMetricSourceFirewall |
 | pdh_check | python | N/A | MetricSourcePdhMetricSourceCheck |
 | pgbouncer | python | N/A | MetricSourcePgbouncer |
@@ -150,6 +166,7 @@
 | proxysql | python | N/A | MetricSourceProxysql |
 | pulsar | python | N/A | MetricSourcePulsar |
 | rabbitmq | python | N/A | MetricSourceRabbitmq |
+| ray | python | N/A | MetricSourceRay |
 | redisdb | python | N/A | MetricSourceRedisdb |
 | rethinkdb | python | N/A | MetricSourceRethinkdb |
 | riak | python | N/A | MetricSourceRiak |
@@ -180,6 +197,7 @@
 | squid | python | N/A | MetricSourceSquid |
 | ssh_check | python | N/A | MetricSourceSshMetricSourceCheck |
 | statsd | python | N/A | MetricSourceStatsd |
+| strimzi | python | N/A | MetricSourceStrimzi |
 | supervisord | python | N/A | MetricSourceSupervisord |
 | system_core | python | N/A | MetricSourceSystemMetricSourceCore |
 | system_swap | python | N/A | MetricSourceSystemMetricSourceSwap |
@@ -187,12 +205,16 @@
 | tcp_check | python | N/A | MetricSourceTcpMetricSourceCheck |
 | tcp_queue_length | ?? | N/A | MetricSourceTcpMetricSourceQueueMetricSourceLength |
 | teamcity | python | N/A | MetricSourceTeamcity |
+| tekton | python | N/A | MetricSourceTekton |
+| teleport | python | N/A | MetricSourceTeleport |
+| temporal | python | N/A | MetricSourceTemporal |
 | tenable | ?? | N/A | MetricSourceTenable |
 | teradata | python | N/A | MetricSourceTeradata |
 | terraform | ?? | N/A | MetricSourceTerraform |
 | tls | python | N/A | MetricSourceTls |
 | tokumx | python | N/A | MetricSourceTokumx |
-| tomcat | jmx | ```       7 Catalina  ``` | MetricSourceTomcat |
+| tomcat | jmx | ```  ``` | MetricSourceTomcat |
+| torchserve | python | N/A | MetricSourceTorchserve |
 | traffic_server | python | N/A | MetricSourceTrafficMetricSourceServer |
 | twemproxy | python | N/A | MetricSourceTwemproxy |
 | twistlock | python | N/A | MetricSourceTwistlock |
@@ -201,11 +223,15 @@
 | vertica | python | N/A | MetricSourceVertica |
 | voltdb | python | N/A | MetricSourceVoltdb |
 | vsphere | python | N/A | MetricSourceVsphere |
+| weaviate | python | N/A | MetricSourceWeaviate |
 | weblogic | jmx | ```      10 com.bea  ``` | MetricSourceWeblogic |
 | win32_event_log | python | N/A | MetricSourceWin32MetricSourceEventMetricSourceLog |
+| wincrashdetect | ?? | N/A | MetricSourceWincrashdetect |
 | windows_performance_counters | python | N/A | MetricSourceWindowsMetricSourcePerformanceMetricSourceCounters |
+| windows_registry | ?? | N/A | MetricSourceWindowsMetricSourceRegistry |
 | windows_service | python | N/A | MetricSourceWindowsMetricSourceService |
 | winkmem | ?? | N/A | MetricSourceWinkmem |
 | wmi_check | python | N/A | MetricSourceWmiMetricSourceCheck |
 | yarn | python | N/A | MetricSourceYarn |
+| zeek | ?? | N/A | MetricSourceZeek |
 | zk | python | N/A | MetricSourceZk |
